@@ -45,8 +45,14 @@
     .result {
       margin-top: 1.5em;
       font-weight: bold;
-      font-size: 2em;
+      font-size: 1.5em;
       display: block;
+    }
+    .correct-value {
+      margin-top: 0.5em;
+      font-size: 2em;
+      font-weight: bold;
+      color: red;
     }
   </style>
 </head>
@@ -58,6 +64,7 @@
     <button onclick="checkAnswer()">Check</button>
     <button onclick="generateQuestion()">Next</button>
     <div class="result" id="result"></div>
+    <div class="correct-value" id="correctValue"></div>
   </div>
 
   <script>
@@ -81,13 +88,15 @@
       document.getElementById("question").textContent = `${num1} ${operator} ${num2} = ?`;
       document.getElementById("answer").value = '';
       document.getElementById("result").textContent = '';
+      document.getElementById("correctValue").textContent = '';
       answered = false;
 
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
         if (!answered) {
-          document.getElementById("result").textContent = `Failed. The correct answer is ${correctResult}.`;
+          document.getElementById("result").textContent = `Failed.`;
           document.getElementById("result").style.color = "red";
+          document.getElementById("correctValue").textContent = `Correct Answer: ${correctResult}`;
           answered = true;
         }
       }, 60000); // 1 minute
@@ -98,6 +107,7 @@
 
       const userAnswer = parseInt(document.getElementById("answer").value, 10);
       const resultDisplay = document.getElementById("result");
+      const correctValueDisplay = document.getElementById("correctValue");
 
       if (isNaN(userAnswer)) {
         resultDisplay.textContent = "Please enter a valid number.";
@@ -112,14 +122,15 @@
         resultDisplay.textContent = "Correct!";
         resultDisplay.style.color = "green";
       } else {
-        resultDisplay.textContent = `Incorrect. The correct answer is ${correctResult}.`;
+        resultDisplay.textContent = "Incorrect.";
         resultDisplay.style.color = "red";
+        correctValueDisplay.textContent = `Correct Answer: ${correctResult}`;
       }
     }
 
     // Generate initial question
     generateQuestion();
-  
+ 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
