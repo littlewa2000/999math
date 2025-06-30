@@ -78,17 +78,23 @@
       margin-top: 1em;
       width: 100%;
     }
+    #timer {
+      margin-top: 1em;
+      font-size: 1.2em;
+      color: #333;
+    }
   </style>
 </head>
 <body>
   <div class="card">
     <h2 id="question"></h2>
-    <input type="number" id="answer" placeholder="Your answer" min="0" max="999" oninput="enableCheckButton()">
+    <input type="number" id="answer" placeholder="Your answer" min="0" max="999" oninput="handleInput()">
     <br>
     <button id="checkButton" onclick="checkAnswer()" disabled>Check</button>
-    <button id="nextButton" onclick="generateQuestion()">Next</button>
+    <button id="nextButton" onclick="generateQuestion()" disabled>Next</button>
     <div class="result" id="result"></div>
     <div class="correct-value" id="correctValue"></div>
+    <div id="timer">Time: 0s</div>
   </div>
   <div class="sidebar">
     <h3>Statistics</h3>
@@ -100,8 +106,9 @@
 
   <script>
     let num1, num2, operator, correctResult;
-    let timeoutId;
     let answered = false;
+    let timer = 0;
+    let timerInterval;
 
     let totalCount = 0;
     let correctCount = 0;
@@ -126,14 +133,27 @@
       updateStats();
     }
 
-    function enableCheckButton() {
+    function handleInput() {
       const answer = document.getElementById("answer").value;
       const checkButton = document.getElementById("checkButton");
+      const nextButton = document.getElementById("nextButton");
       if (answer !== '' && parseInt(answer) >= 0 && parseInt(answer) <= 999) {
         checkButton.disabled = false;
+        nextButton.disabled = true;
       } else {
         checkButton.disabled = true;
+        nextButton.disabled = true;
       }
+    }
+
+    function startTimer() {
+      timer = 0;
+      clearInterval(timerInterval);
+      document.getElementById("timer").textContent = `Time: 0s`;
+      timerInterval = setInterval(() => {
+        timer++;
+        document.getElementById("timer").textContent = `Time: ${timer}s`;
+      }, 1000);
     }
 
     function generateQuestion() {
@@ -154,23 +174,12 @@
       document.getElementById("result").textContent = '';
       document.getElementById("correctValue").textContent = '';
       document.getElementById("checkButton").disabled = true;
+      document.getElementById("nextButton").disabled = true;
       answered = false;
 
       totalCount++;
       updateStats();
-
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        if (!answered) {
-          document.getElementById("result").textContent = `Failed.`;
-          document.getElementById("result").style.color = "red";
-          document.getElementById("correctValue").textContent = `Correct Answer: ${correctResult}`;
-          document.getElementById("checkButton").disabled = true;
-          incorrectCount++;
-          updateStats();
-          answered = true;
-        }
-      }, 60000); // 1 minute
+      startTimer();
     }
 
     function checkAnswer() {
@@ -180,6 +189,7 @@
       const resultDisplay = document.getElementById("result");
       const correctValueDisplay = document.getElementById("correctValue");
       const checkButton = document.getElementById("checkButton");
+      const nextButton = document.getElementById("nextButton");
 
       if (isNaN(userAnswer) || userAnswer < 0 || userAnswer > 999) {
         resultDisplay.textContent = "Please enter a valid number between 0 and 999.";
@@ -189,8 +199,9 @@
       }
 
       answered = true;
-      clearTimeout(timeoutId);
       checkButton.disabled = true;
+      nextButton.disabled = false;
+      clearInterval(timerInterval);
 
       if (userAnswer === correctResult) {
         resultDisplay.textContent = "Correct!";
@@ -210,6 +221,7 @@
 
     // Generate initial question
     generateQuestion();
+ 
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
