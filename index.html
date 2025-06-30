@@ -3,6 +3,7 @@
 <meta name="apple-mobile-web-app-title" content="Math Checker">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon.png">
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -60,6 +61,32 @@
       font-weight: bold;
       color: red;
     }
+    .explanation {
+      margin-top: 1em;
+      font-size: 1.2em;
+      color: #555;
+    }
+    .number-line {
+      margin-top: 1em;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 5px;
+      font-size: 0.9em;
+    }
+    .number-box {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #999;
+      border-radius: 4px;
+    }
+    .highlight {
+      background-color: yellow;
+      font-weight: bold;
+    }
     .sidebar {
       background: #fff;
       padding: 1em;
@@ -94,6 +121,8 @@
     <button id="nextButton" onclick="generateQuestion()" disabled>Next</button>
     <div class="result" id="result"></div>
     <div class="correct-value" id="correctValue"></div>
+    <div class="explanation" id="explanation"></div>
+    <div class="number-line" id="numberLine"></div>
     <div id="timer">Time: 0s</div>
   </div>
   <div class="sidebar">
@@ -173,6 +202,8 @@
       document.getElementById("answer").value = '';
       document.getElementById("result").textContent = '';
       document.getElementById("correctValue").textContent = '';
+      document.getElementById("explanation").textContent = '';
+      document.getElementById("numberLine").innerHTML = '';
       document.getElementById("checkButton").disabled = true;
       document.getElementById("nextButton").disabled = true;
       answered = false;
@@ -180,6 +211,33 @@
       totalCount++;
       updateStats();
       startTimer();
+    }
+
+    function showExplanation() {
+      let steps = [];
+      let min = Math.min(num1, num2);
+      let max = Math.max(num1, num2);
+      if (operator === '+') {
+        for (let i = 0; i <= num2; i++) {
+          steps.push(`${num1} + ${i} = ${num1 + i}`);
+        }
+      } else {
+        for (let i = 0; i <= num1 - num2; i++) {
+          steps.push(`${num1} - ${i} = ${num1 - i}`);
+        }
+      }
+      document.getElementById("explanation").innerHTML = `<strong>Step-by-step:</strong><br>` + steps.join('<br>');
+
+      let numberLineHTML = '';
+      let rangeStart = Math.min(num1, num2);
+      let rangeEnd = correctResult;
+      let step = operator === '+' ? 1 : -1;
+      rangeStart = Math.min(num1, correctResult);
+      rangeEnd = Math.max(num1, correctResult);
+      for (let i = rangeStart; i <= rangeEnd; i++) {
+        numberLineHTML += `<div class="number-box${i === correctResult ? ' highlight' : ''}">${i}</div>`;
+      }
+      document.getElementById("numberLine").innerHTML = numberLineHTML;
     }
 
     function checkAnswer() {
@@ -207,22 +265,23 @@
         resultDisplay.textContent = "Correct!";
         resultDisplay.style.color = "green";
         correctValueDisplay.textContent = '';
+        document.getElementById("explanation").textContent = '';
+        document.getElementById("numberLine").innerHTML = '';
         correctCount++;
       } else {
         resultDisplay.textContent = "Incorrect.";
         resultDisplay.style.color = "red";
         resultDisplay.style.fontSize = "2em";
         correctValueDisplay.textContent = `Correct Answer: ${correctResult}`;
+        showExplanation();
         incorrectCount++;
       }
 
       updateStats();
     }
 
-    // Generate initial question
     generateQuestion();
  
-
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
