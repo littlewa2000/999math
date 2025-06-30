@@ -60,15 +60,18 @@
     let answered = false;
 
     function generateQuestion() {
-      num1 = Math.floor(Math.random() * 1000);
-      num2 = Math.floor(Math.random() * 1000);
-      operator = Math.random() > 0.5 ? '+' : '-';
+      do {
+        num1 = Math.floor(Math.random() * 1000);
+        num2 = Math.floor(Math.random() * 1000);
+        operator = Math.random() > 0.5 ? '+' : '-';
 
-      if (operator === '-' && num2 > num1) {
-        [num1, num2] = [num2, num1];
-      }
+        if (operator === '-' && num2 > num1) {
+          [num1, num2] = [num2, num1];
+        }
 
-      correctResult = operator === '+' ? num1 + num2 : num1 - num2;
+        correctResult = operator === '+' ? num1 + num2 : num1 - num2;
+      } while (correctResult < 0 || correctResult > 999);
+
       document.getElementById("question").textContent = `${num1} ${operator} ${num2} = ?`;
       document.getElementById("answer").value = '';
       document.getElementById("result").textContent = '';
@@ -107,6 +110,7 @@
 
     // Generate initial question
     generateQuestion();
+ 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
