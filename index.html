@@ -82,11 +82,14 @@
         if (!answered) {
           document.getElementById("result").textContent = `Failed. The correct answer is ${correctResult}.`;
           document.getElementById("result").style.color = "red";
+          answered = true;
         }
       }, 60000); // 1 minute
     }
 
     function checkAnswer() {
+      if (answered) return;
+
       const userAnswer = parseInt(document.getElementById("answer").value, 10);
       const resultDisplay = document.getElementById("result");
 
@@ -110,7 +113,9 @@
 
     // Generate initial question
     generateQuestion();
- 
+  </script>
+</body>
+</html> 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
