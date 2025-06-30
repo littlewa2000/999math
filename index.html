@@ -3,8 +3,7 @@
 <meta name="apple-mobile-web-app-title" content="Math Checker">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon.png">
-
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -66,10 +65,6 @@
       color: #555;
       text-align: left;
       font-family: monospace;
-    }
-    .highlight {
-      background-color: yellow;
-      font-weight: bold;
     }
     .sidebar {
       background: #fff;
@@ -189,39 +184,19 @@
       startTimer();
     }
 
-    async function showStandardAlgorithm() {
+    function showStandardAlgorithm() {
       const explanation = document.getElementById("explanation");
-      explanation.innerHTML = '<strong>Standard Algorithm (with carry/borrow):</strong><br>';
+      const aStr = num1.toString().padStart(3, ' ');
+      const bStr = num2.toString().padStart(3, ' ');
+      const resultStr = correctResult.toString().padStart(4, ' ');
+      const symbol = operator;
 
-      const aStr = num1.toString().padStart(3, '0');
-      const bStr = num2.toString().padStart(3, '0');
-      const a = aStr.split('').map(Number);
-      const b = bStr.split('').map(Number);
-      const r = correctResult.toString().padStart(3, '0').split('');
-
-      let carries = [0, 0, 0];
-      let output = ['', '', '', ''];
-
-      for (let i = 2; i >= 0; i--) {
-        let step = '';
-        const digitA = a[i];
-        const digitB = b[i];
-        let sum = operator === '+' ? digitA + digitB + carries[i + 1] : digitA - digitB;
-
-        if (operator === '+' && sum >= 10) {
-          carries[i] = 1;
-          sum -= 10;
-        }
-
-        output[i] = sum.toString();
-      }
-
-      let carryLine = carries.map(c => c ? `<sup>${c}</sup>` : '&nbsp;').join('&nbsp;');
-      let lineA = aStr.split('').map((d, i) => `<span class="${carries[i] ? 'highlight' : ''}">${d}</span>`).join('&nbsp;');
-      let lineB = bStr;
-      let resultLine = output.join('&nbsp;');
-
-      explanation.innerHTML += `${carryLine}<br> ${lineA}<br>${operator} ${lineB}<br>------<br> ${resultLine}`;
+      explanation.innerHTML =
+        `<strong>Standard Algorithm:</strong><br>` +
+        `  ${aStr}<br>` +
+        `${symbol} ${bStr}<br>` +
+        `-----<br>` +
+        ` ${resultStr}`;
     }
 
     function checkAnswer() {
@@ -263,9 +238,7 @@
     }
 
     generateQuestion();
-  </script>
-</body>
-</html>
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
