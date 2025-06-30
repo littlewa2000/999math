@@ -3,7 +3,6 @@
 <meta name="apple-mobile-web-app-title" content="Math Checker">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon.png">
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -188,10 +187,14 @@
 
     function showStandardAlgorithm() {
       const explanation = document.getElementById("explanation");
-      const maxLength = Math.max(num1.toString().length, num2.toString().length);
+      const maxLength = Math.max(
+        num1.toString().length,
+        num2.toString().length,
+        correctResult.toString().length
+      );
       const aStr = num1.toString().padStart(maxLength, ' ');
       const bStr = num2.toString().padStart(maxLength, ' ');
-      const resultStr = correctResult.toString().padStart(maxLength + 1, ' ');
+      const resultStr = correctResult.toString().padStart(maxLength, ' ');
       const symbol = operator;
 
       explanation.innerHTML =
@@ -241,6 +244,9 @@
     }
 
     generateQuestion();
+  </script>
+</body>
+</html>
  
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
