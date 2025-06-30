@@ -44,6 +44,10 @@
       font-size: 1em;
       cursor: pointer;
     }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
     .result {
       margin-top: 1.5em;
       font-weight: bold;
@@ -79,10 +83,10 @@
 <body>
   <div class="card">
     <h2 id="question"></h2>
-    <input type="number" id="answer" placeholder="Your answer" min="0" max="999">
+    <input type="number" id="answer" placeholder="Your answer" min="0" max="999" oninput="enableCheckButton()">
     <br>
-    <button onclick="checkAnswer()">Check</button>
-    <button onclick="generateQuestion()">Next</button>
+    <button id="checkButton" onclick="checkAnswer()" disabled>Check</button>
+    <button id="nextButton" onclick="generateQuestion()">Next</button>
     <div class="result" id="result"></div>
     <div class="correct-value" id="correctValue"></div>
   </div>
@@ -122,6 +126,16 @@
       updateStats();
     }
 
+    function enableCheckButton() {
+      const answer = document.getElementById("answer").value;
+      const checkButton = document.getElementById("checkButton");
+      if (answer !== '' && parseInt(answer) >= 0 && parseInt(answer) <= 999) {
+        checkButton.disabled = false;
+      } else {
+        checkButton.disabled = true;
+      }
+    }
+
     function generateQuestion() {
       do {
         num1 = Math.floor(Math.random() * 1000);
@@ -139,6 +153,7 @@
       document.getElementById("answer").value = '';
       document.getElementById("result").textContent = '';
       document.getElementById("correctValue").textContent = '';
+      document.getElementById("checkButton").disabled = true;
       answered = false;
 
       totalCount++;
@@ -150,6 +165,7 @@
           document.getElementById("result").textContent = `Failed.`;
           document.getElementById("result").style.color = "red";
           document.getElementById("correctValue").textContent = `Correct Answer: ${correctResult}`;
+          document.getElementById("checkButton").disabled = true;
           incorrectCount++;
           updateStats();
           answered = true;
@@ -163,9 +179,10 @@
       const userAnswer = parseInt(document.getElementById("answer").value, 10);
       const resultDisplay = document.getElementById("result");
       const correctValueDisplay = document.getElementById("correctValue");
+      const checkButton = document.getElementById("checkButton");
 
-      if (isNaN(userAnswer)) {
-        resultDisplay.textContent = "Please enter a valid number.";
+      if (isNaN(userAnswer) || userAnswer < 0 || userAnswer > 999) {
+        resultDisplay.textContent = "Please enter a valid number between 0 and 999.";
         resultDisplay.style.color = "orange";
         resultDisplay.style.fontSize = "1.5em";
         return;
@@ -173,6 +190,7 @@
 
       answered = true;
       clearTimeout(timeoutId);
+      checkButton.disabled = true;
 
       if (userAnswer === correctResult) {
         resultDisplay.textContent = "Correct!";
@@ -192,7 +210,7 @@
 
     // Generate initial question
     generateQuestion();
- 
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
