@@ -4,13 +4,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon.png">
 
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Math Checker</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -65,27 +64,7 @@
       margin-top: 1em;
       font-size: 1.2em;
       color: #555;
-    }
-    .number-line {
-      margin-top: 1em;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 5px;
-      font-size: 0.9em;
-    }
-    .number-box {
-      width: 30px;
-      height: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid #999;
-      border-radius: 4px;
-    }
-    .highlight {
-      background-color: yellow;
-      font-weight: bold;
+      text-align: left;
     }
     .sidebar {
       background: #fff;
@@ -110,6 +89,15 @@
       font-size: 1.2em;
       color: #333;
     }
+    .standard-algorithm {
+      font-family: monospace;
+      white-space: pre;
+      margin-top: 1em;
+      padding: 0.5em;
+      background: #eef;
+      border: 1px solid #99c;
+      border-radius: 5px;
+    }
   </style>
 </head>
 <body>
@@ -122,7 +110,6 @@
     <div class="result" id="result"></div>
     <div class="correct-value" id="correctValue"></div>
     <div class="explanation" id="explanation"></div>
-    <div class="number-line" id="numberLine"></div>
     <div id="timer">Time: 0s</div>
   </div>
   <div class="sidebar">
@@ -138,7 +125,6 @@
     let answered = false;
     let timer = 0;
     let timerInterval;
-
     let totalCount = 0;
     let correctCount = 0;
     let incorrectCount = 0;
@@ -190,11 +176,7 @@
         num1 = Math.floor(Math.random() * 1000);
         num2 = Math.floor(Math.random() * 1000);
         operator = Math.random() > 0.5 ? '+' : '-';
-
-        if (operator === '-' && num2 > num1) {
-          [num1, num2] = [num2, num1];
-        }
-
+        if (operator === '-' && num2 > num1) [num1, num2] = [num2, num1];
         correctResult = operator === '+' ? num1 + num2 : num1 - num2;
       } while (correctResult < 0 || correctResult > 999);
 
@@ -203,85 +185,62 @@
       document.getElementById("result").textContent = '';
       document.getElementById("correctValue").textContent = '';
       document.getElementById("explanation").textContent = '';
-      document.getElementById("numberLine").innerHTML = '';
       document.getElementById("checkButton").disabled = true;
       document.getElementById("nextButton").disabled = true;
       answered = false;
-
       totalCount++;
       updateStats();
       startTimer();
     }
 
-    function showExplanation() {
-      let steps = [];
-      let min = Math.min(num1, num2);
-      let max = Math.max(num1, num2);
-      if (operator === '+') {
-        for (let i = 0; i <= num2; i++) {
-          steps.push(`${num1} + ${i} = ${num1 + i}`);
-        }
-      } else {
-        for (let i = 0; i <= num1 - num2; i++) {
-          steps.push(`${num1} - ${i} = ${num1 - i}`);
-        }
-      }
-      document.getElementById("explanation").innerHTML = `<strong>Step-by-step:</strong><br>` + steps.join('<br>');
-
-      let numberLineHTML = '';
-      let rangeStart = Math.min(num1, num2);
-      let rangeEnd = correctResult;
-      let step = operator === '+' ? 1 : -1;
-      rangeStart = Math.min(num1, correctResult);
-      rangeEnd = Math.max(num1, correctResult);
-      for (let i = rangeStart; i <= rangeEnd; i++) {
-        numberLineHTML += `<div class="number-box${i === correctResult ? ' highlight' : ''}">${i}</div>`;
-      }
-      document.getElementById("numberLine").innerHTML = numberLineHTML;
+    function showStandardAlgorithm() {
+      const explanation = document.getElementById("explanation");
+      const a = num1.toString().padStart(3, ' ');
+      const b = num2.toString().padStart(3, ' ');
+      const result = correctResult.toString().padStart(4, ' ');
+      const symbol = operator;
+      explanation.innerHTML =
+        `<div class="standard-algorithm">
+&nbsp;&nbsp;${a}<br>${symbol} ${b}<br>-----<br>&nbsp;${result}
+</div>`;
     }
 
     function checkAnswer() {
       if (answered) return;
-
       const userAnswer = parseInt(document.getElementById("answer").value, 10);
       const resultDisplay = document.getElementById("result");
       const correctValueDisplay = document.getElementById("correctValue");
       const checkButton = document.getElementById("checkButton");
       const nextButton = document.getElementById("nextButton");
-
       if (isNaN(userAnswer) || userAnswer < 0 || userAnswer > 999) {
         resultDisplay.textContent = "Please enter a valid number between 0 and 999.";
         resultDisplay.style.color = "orange";
         resultDisplay.style.fontSize = "1.5em";
         return;
       }
-
       answered = true;
       checkButton.disabled = true;
       nextButton.disabled = false;
       clearInterval(timerInterval);
-
       if (userAnswer === correctResult) {
         resultDisplay.textContent = "Correct!";
         resultDisplay.style.color = "green";
         correctValueDisplay.textContent = '';
         document.getElementById("explanation").textContent = '';
-        document.getElementById("numberLine").innerHTML = '';
         correctCount++;
       } else {
         resultDisplay.textContent = "Incorrect.";
         resultDisplay.style.color = "red";
         resultDisplay.style.fontSize = "2em";
         correctValueDisplay.textContent = `Correct Answer: ${correctResult}`;
-        showExplanation();
+        showStandardAlgorithm();
         incorrectCount++;
       }
-
       updateStats();
     }
 
     generateQuestion();
- 
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
