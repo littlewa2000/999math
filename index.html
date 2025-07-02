@@ -3,6 +3,7 @@
 <meta name="apple-mobile-web-app-title" content="Math Checker">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="icon.png">
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -144,10 +145,11 @@
     }
 
     function resetStats() {
-      totalCount = 0;
-      correctCount = 0;
-      incorrectCount = 0;
-      updateStats();
+  totalCount = 0;
+  correctCount = 0;
+  incorrectCount = 0;
+  updateStats();
+  generateQuestion();
     }
 
     function handleInput() {
@@ -254,7 +256,7 @@
     }
 
     generateQuestion();
-
+  
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js');
     }
