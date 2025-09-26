@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Math Checker</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -22,47 +22,20 @@
       --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      color: var(--text);
-      background: var(--bg);
-    }
-    .container {
-      max-width: 1000px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-      display: grid;
-      grid-template-columns: 3fr 2fr;
-      grid-gap: 1rem;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1rem;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-    }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; color: var(--text); background: var(--bg); }
+    .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 3fr 2fr; grid-gap: 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
     h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
     .muted { color: var(--muted); }
 
     /* Mode Buttons */
     .mode-buttons { display: flex; gap: .5rem; margin: .25rem 0 .75rem 0; flex-wrap: wrap; }
-    .mode-buttons button {
-      border: 1px solid var(--border);
-      background: #fff;
-      padding: .35rem .7rem;
-      border-radius: 9999px;
-      cursor: pointer;
-      font-size: .9rem;
-    }
+    .mode-buttons button { border: 1px solid var(--border); background: #fff; padding: .35rem .7rem; border-radius: 9999px; cursor: pointer; font-size: .9rem; }
     .mode-buttons button.active { background: var(--brand-weak); border-color: var(--brand); color: var(--brand); }
 
     .question { font-size: 2rem; letter-spacing: .5px; text-align: center; margin: .75rem 0; }
     .row { display: flex; gap: .5rem; align-items: center; margin: .25rem 0; }
-    input[type="number"] {
-      width: 120px; padding: .5rem .6rem; font-size: 1rem; border-radius: 8px; border: 1px solid var(--border);
-    }
+    input[type="number"] { width: 120px; padding: .5rem .6rem; font-size: 1rem; border-radius: 8px; border: 1px solid var(--border); }
     button.primary { background: var(--brand); color: #fff; border: none; padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
     button.secondary { background: #fff; color: var(--text); border: 1px solid var(--border); padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
     button:disabled { opacity: .5; cursor: not-allowed; }
@@ -73,15 +46,18 @@
 
     .timer { font-variant-numeric: tabular-nums; }
 
+    /* Scratchpad */
+    .pad-header { display:flex; align-items:center; justify-content:space-between; margin-top:.5rem; gap:.75rem; flex-wrap:wrap; }
+    .pad-controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    #scratchpad { width:100%; height:240px; background:#fff; border:1px solid var(--border); border-radius:12px; display:block; touch-action:none; user-select:none; -webkit-user-select:none; cursor: crosshair; }
+    .size-wrap { display:flex; align-items:center; gap:.4rem; }
+    .size-wrap input[type=range] { width: 140px; }
+
     .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
-    .stat {
-      border: 1px solid var(--border); border-radius: 10px; padding: .5rem; text-align: center; background: #fff;
-    }
+    .stat { border: 1px solid var(--border); border-radius: 10px; padding: .5rem; text-align: center; background: #fff; }
     .stat .kpi { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
 
-    @media (max-width: 820px) {
-      .container { grid-template-columns: 1fr; }
-    }
+    @media (max-width: 820px) { .container { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -109,6 +85,21 @@
 
       <div id="result" class="result"></div>
       <div id="correctValue" class="muted" style="min-height:1rem"></div>
+
+      <!-- Scratchpad: drawing area -->
+      <div class="pad-header">
+        <div class="muted">Working area (draw with mouse or finger)</div>
+        <div class="pad-controls">
+          <div class="size-wrap">
+            <span class="muted">Pen size</span>
+            <input id="sizeInput" type="range" min="1" max="20" step="1" value="3" />
+            <span id="sizeValue" class="muted">3</span>
+          </div>
+          <button id="clearPadBtn" class="secondary">Clear</button>
+        </div>
+      </div>
+      <canvas id="scratchpad" aria-label="Drawing area"></canvas>
+
     </main>
 
     <aside class="card">
@@ -132,6 +123,10 @@
     let counts = { total: 0, correct: 0, incorrect: 0 };
     let mode = localStorage.getItem("mc_mode") || "both"; // "add" | "sub" | "both"
 
+    // Drawing state
+    let penSize = Number(localStorage.getItem('mc_pen_size') || 3);
+    let isDrawing = false; let ctx; const dpr = Math.max(1, window.devicePixelRatio || 1);
+
     // ------- Elements -------
     const questionEl = document.getElementById('question');
     const answerInput = document.getElementById('answer');
@@ -151,6 +146,12 @@
     const modeAddBtn = document.getElementById('mode-add');
     const modeSubBtn = document.getElementById('mode-sub');
     const modeBothBtn = document.getElementById('mode-both');
+
+    // Scratchpad elements
+    const canvas = document.getElementById('scratchpad');
+    const sizeInput = document.getElementById('sizeInput');
+    const sizeValue = document.getElementById('sizeValue');
+    const clearPadBtn = document.getElementById('clearPadBtn');
 
     // ------- Mode handling -------
     function setMode(selected) {
@@ -187,95 +188,124 @@
       answerInput.value = '';
       answerInput.focus();
 
+      // Clear drawing area for new question
+      clearCanvas();
+
       // Build a question according to mode
       num1 = randInt(999);
       num2 = randInt(999);
       operator = chooseOperator();
-
-      if (operator === '-' && num2 > num1) {
-        [num1, num2] = [num2, num1]; // avoid negatives
-      }
-
+      if (operator === '-' && num2 > num1) { [num1, num2] = [num2, num1]; }
       correctResult = operator === '+' ? (num1 + num2) : (num1 - num2);
-
-      // Ensure result within input bounds (0–999)
-      if (correctResult < 0 || correctResult > 999) {
-        return generateQuestion();
-      }
+      if (correctResult < 0 || correctResult > 999) return generateQuestion();
 
       questionEl.textContent = `${num1} ${operator} ${num2}`;
       startTimer();
-      // Count a new question only when it is generated
-      counts.total += 1;
-      updateStats();
+      counts.total += 1; updateStats();
     }
 
     function handleInput() {
-      const val = answerInput.value;
-      if (val === '') { checkBtn.disabled = true; return; }
-      const n = Number(val);
-      checkBtn.disabled = !(Number.isInteger(n) && n >= 0 && n <= 999);
+      const val = answerInput.value; if (val === '') { checkBtn.disabled = true; return; }
+      const n = Number(val); checkBtn.disabled = !(Number.isInteger(n) && n >= 0 && n <= 999);
     }
 
-    function startTimer() {
-      stopTimer();
-      seconds = 0;
-      timerEl.textContent = '0s';
-      timer = setInterval(() => {
-        seconds += 1; timerEl.textContent = `${seconds}s`;
-      }, 1000);
-    }
-
+    function startTimer() { stopTimer(); seconds = 0; timerEl.textContent = '0s'; timer = setInterval(()=>{ seconds += 1; timerEl.textContent = `${seconds}s`; }, 1000); }
     function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
 
     function checkAnswer() {
       if (answered) return;
-      const n = Number(answerInput.value);
-      if (!Number.isInteger(n) || n < 0 || n > 999) return;
+      const n = Number(answerInput.value); if (!Number.isInteger(n) || n < 0 || n > 999) return;
+      answered = true; stopTimer(); checkBtn.disabled = true; nextBtn.disabled = false;
+      if (n === correctResult) { resultEl.textContent = 'Correct!'; resultEl.classList.add('ok'); counts.correct += 1; }
+      else { resultEl.textContent = 'Incorrect.'; resultEl.classList.add('bad'); correctValueEl.textContent = `Correct answer: ${correctResult}`; counts.incorrect += 1; }
+      updateStats();
+    }
 
-      answered = true;
-      stopTimer();
-      checkBtn.disabled = true;
-      nextBtn.disabled = false;
+    function updateStats() { totalCountEl.textContent = counts.total; correctCountEl.textContent = counts.correct; incorrectCountEl.textContent = counts.incorrect; const acc = counts.total ? (counts.correct / counts.total) * 100 : 0; correctRateEl.textContent = `${acc.toFixed(1)}%`; }
+    function resetStats() { counts = { total: 0, correct: 0, incorrect: 0 }; updateStats(); generateQuestion(); }
 
-      if (n === correctResult) {
-        resultEl.textContent = 'Correct!';
-        resultEl.classList.add('ok');
-        counts.correct += 1;
-      } else {
-        resultEl.textContent = 'Incorrect.';
-        resultEl.classList.add('bad');
-        correctValueEl.textContent = `Correct answer: ${correctResult}`;
-        counts.incorrect += 1;
+    // ------- Drawing area (mouse + touch + pen) -------
+    function setupCanvas() {
+      ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+      const cssW = rect.width, cssH = rect.height;
+      // Resize backing store for crisp lines on high-DPI
+      if (canvas.width !== Math.floor(cssW * dpr) || canvas.height !== Math.floor(cssH * dpr)) {
+        canvas.width = Math.floor(cssW * dpr);
+        canvas.height = Math.floor(cssH * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
-      updateStats();
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = penSize;
+      clearCanvas();
+      // reflect UI
+      sizeInput.value = String(penSize); sizeValue.textContent = String(penSize);
     }
 
-    function updateStats() {
-      totalCountEl.textContent = counts.total;
-      correctCountEl.textContent = counts.correct;
-      incorrectCountEl.textContent = counts.incorrect;
-      const acc = counts.total ? (counts.correct / counts.total) * 100 : 0;
-      correctRateEl.textContent = `${acc.toFixed(1)}%`;
+    function clearCanvas() {
+      if (!ctx) return;
+      const rect = canvas.getBoundingClientRect();
+      ctx.save();
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Fill white so the background is opaque
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+      ctx.beginPath();
     }
 
-    function resetStats() {
-      counts = { total: 0, correct: 0, incorrect: 0 };
-      updateStats();
-      generateQuestion();
+    function posFromEvent(e) {
+      const r = canvas.getBoundingClientRect();
+      if (e.touches && e.touches[0]) return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
     }
 
-    resetStatsBtn.addEventListener('click', resetStats);
+    function pointerDown(e) { e.preventDefault(); isDrawing = true; ctx.lineWidth = penSize; const p = posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }
+    function pointerMove(e) { if (!isDrawing) return; e.preventDefault(); const p = posFromEvent(e); ctx.lineTo(p.x, p.y); ctx.stroke(); }
+    function pointerUp() { isDrawing = false; ctx.closePath(); }
+
+    function bindPadEvents() {
+      // Disable right-click menu on canvas
+      canvas.addEventListener('contextmenu', (e)=> e.preventDefault());
+      if (window.PointerEvent) {
+        canvas.addEventListener('pointerdown', pointerDown);
+        canvas.addEventListener('pointermove', pointerMove);
+        canvas.addEventListener('pointerup', pointerUp);
+        canvas.addEventListener('pointerleave', pointerUp);
+        canvas.addEventListener('pointercancel', pointerUp);
+      } else {
+        // Touch
+        canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); isDrawing=true; ctx.lineWidth=penSize; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
+        canvas.addEventListener('touchmove', (e)=>{ e.preventDefault(); if(!isDrawing) return; const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }, {passive:false});
+        ['touchend','touchcancel'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
+        // Mouse
+        canvas.addEventListener('mousedown', (e)=>{ e.preventDefault(); isDrawing=true; ctx.lineWidth=penSize; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+        canvas.addEventListener('mousemove', (e)=>{ if(!isDrawing) return; e.preventDefault(); const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
+        ['mouseup','mouseleave'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
+      }
+    }
+
+    // Controls
+    sizeInput.addEventListener('input', () => { penSize = Number(sizeInput.value || 3); localStorage.setItem('mc_pen_size', String(penSize)); if (ctx) ctx.lineWidth = penSize; sizeValue.textContent = String(penSize); });
+    clearPadBtn.addEventListener('click', clearCanvas);
+
+    // ------- Events -------
     answerInput.addEventListener('input', handleInput);
     checkBtn.addEventListener('click', checkAnswer);
     nextBtn.addEventListener('click', generateQuestion);
+    resetStatsBtn.addEventListener('click', resetStats);
 
-    if ('serviceWorker' in navigator) {
-      try { navigator.serviceWorker.register('sw.js'); } catch (_) {}
-    }
+    if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js'); } catch (_) {} }
 
     function init() {
       setMode(mode);
+      // Setup drawing area
+      setupCanvas();
+      bindPadEvents();
+      // Keep canvas crisp on resize
+      let t; window.addEventListener('resize', ()=>{ clearTimeout(t); t = setTimeout(setupCanvas, 150); });
     }
     window.requestAnimationFrame(init);
   </script>
