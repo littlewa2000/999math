@@ -47,37 +47,37 @@
     .muted { color: var(--muted); }
 
     /* Mode Buttons */
-    .mode-buttons { display: flex; gap: .5rem; margin: .5rem 0 1rem 0; flex-wrap: wrap; }
+    .mode-buttons { display: flex; gap: .5rem; margin: .25rem 0 .75rem 0; flex-wrap: wrap; }
     .mode-buttons button {
       border: 1px solid var(--border);
       background: #fff;
-      padding: .5rem .8rem;
+      padding: .35rem .7rem;
       border-radius: 9999px;
       cursor: pointer;
+      font-size: .9rem;
     }
     .mode-buttons button.active { background: var(--brand-weak); border-color: var(--brand); color: var(--brand); }
 
-    .question { font-size: 2.25rem; letter-spacing: .5px; text-align: center; margin: 1rem 0; }
-    .row { display: flex; gap: .5rem; align-items: center; }
+    .question { font-size: 2rem; letter-spacing: .5px; text-align: center; margin: .75rem 0; }
+    .row { display: flex; gap: .5rem; align-items: center; margin: .25rem 0; }
     input[type="number"] {
-      width: 140px; padding: .6rem .7rem; font-size: 1.1rem; border-radius: 8px; border: 1px solid var(--border);
+      width: 120px; padding: .5rem .6rem; font-size: 1rem; border-radius: 8px; border: 1px solid var(--border);
     }
-    button.primary { background: var(--brand); color: #fff; border: none; padding: .6rem 1rem; border-radius: 8px; cursor: pointer; }
-    button.secondary { background: #fff; color: var(--text); border: 1px solid var(--border); padding: .6rem 1rem; border-radius: 8px; cursor: pointer; }
+    button.primary { background: var(--brand); color: #fff; border: none; padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
+    button.secondary { background: #fff; color: var(--text); border: 1px solid var(--border); padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
     button:disabled { opacity: .5; cursor: not-allowed; }
 
-    .result { min-height: 1.75rem; font-weight: 600; margin-top: .25rem; }
+    .result { min-height: 1.5rem; font-weight: 600; margin-top: .25rem; }
     .ok { color: var(--ok); }
     .bad { color: var(--bad); }
 
-    .explanation { white-space: pre; font-family: var(--mono); background: #fafafa; border: 1px dashed var(--border); border-radius: 8px; padding: .5rem .75rem; }
     .timer { font-variant-numeric: tabular-nums; }
 
     .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
     .stat {
-      border: 1px solid var(--border); border-radius: 10px; padding: .75rem; text-align: center; background: #fff;
+      border: 1px solid var(--border); border-radius: 10px; padding: .5rem; text-align: center; background: #fff;
     }
-    .stat .kpi { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+    .stat .kpi { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
 
     @media (max-width: 820px) {
       .container { grid-template-columns: 1fr; }
@@ -100,7 +100,7 @@
       <div id="question" class="question">0 + 0</div>
 
       <div class="row">
-        <label for="answer" class="muted" style="width:80px">Answer</label>
+        <label for="answer" class="muted" style="width:70px">Answer</label>
         <input id="answer" type="number" inputmode="numeric" min="0" max="999" placeholder="0–999" />
         <button id="checkBtn" class="primary" disabled>Check</button>
         <button id="nextBtn" class="secondary" disabled>Next</button>
@@ -108,8 +108,7 @@
       </div>
 
       <div id="result" class="result"></div>
-      <div id="correctValue" class="muted" style="min-height:1.25rem"></div>
-      <div id="explanation" class="explanation" style="min-height:3.25rem"></div>
+      <div id="correctValue" class="muted" style="min-height:1rem"></div>
     </main>
 
     <aside class="card">
@@ -120,7 +119,7 @@
         <div class="stat"><div class="muted">Incorrect</div><div id="incorrectCount" class="kpi">0</div></div>
         <div class="stat"><div class="muted">Accuracy</div><div id="correctRate" class="kpi">0.0%</div></div>
       </div>
-      <div class="row" style="margin-top:1rem; justify-content:space-between">
+      <div class="row" style="margin-top:.5rem; justify-content:space-between">
         <button id="resetStats" class="secondary">Reset Stats</button>
       </div>
     </aside>
@@ -140,7 +139,6 @@
     const nextBtn = document.getElementById('nextBtn');
     const resultEl = document.getElementById('result');
     const correctValueEl = document.getElementById('correctValue');
-    const explanationEl = document.getElementById('explanation');
     const timerEl = document.getElementById('timer');
 
     const totalCountEl = document.getElementById('totalCount');
@@ -183,7 +181,6 @@
       resultEl.textContent = '';
       resultEl.className = 'result';
       correctValueEl.textContent = '';
-      explanationEl.textContent = '';
       answered = false;
       checkBtn.disabled = true; // until user types something valid
       nextBtn.disabled = true;
@@ -244,13 +241,11 @@
       if (n === correctResult) {
         resultEl.textContent = 'Correct!';
         resultEl.classList.add('ok');
-        explanationEl.textContent = '';
         counts.correct += 1;
       } else {
         resultEl.textContent = 'Incorrect.';
         resultEl.classList.add('bad');
         correctValueEl.textContent = `Correct answer: ${correctResult}`;
-        showStandardAlgorithm(num1, num2, operator, correctResult);
         counts.incorrect += 1;
       }
       updateStats();
@@ -270,29 +265,19 @@
       generateQuestion();
     }
 
-    function showStandardAlgorithm(a, b, op, ans) {
-      // Render a simple vertical algorithm view
-      const w = Math.max(String(a).length, String(b).length) + 2; // room for operator
-      const line1 = `${String(a).padStart(w, ' ')}`;
-      const line2 = `${op}${String(b).padStart(w - 1, ' ')}`;
-      const sep = '-'.repeat(w);
-      const line3 = `${String(ans).padStart(w, ' ')}`;
-      explanationEl.textContent = `${line1}\n${line2}\n${sep}\n${line3}`;
-    }
-
-    // ------- Events -------
+    resetStatsBtn.addEventListener('click', resetStats);
     answerInput.addEventListener('input', handleInput);
     checkBtn.addEventListener('click', checkAnswer);
     nextBtn.addEventListener('click', generateQuestion);
-    resetStatsBtn.addEventListener('click', resetStats);
 
-    // ------- PWA (optional) -------
     if ('serviceWorker' in navigator) {
       try { navigator.serviceWorker.register('sw.js'); } catch (_) {}
     }
 
-    // Init
-    setMode(mode);
+    function init() {
+      setMode(mode);
+    }
+    window.requestAnimationFrame(init);
   </script>
 </body>
 </html>
