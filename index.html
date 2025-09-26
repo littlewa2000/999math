@@ -80,7 +80,7 @@
     .stat .kpi { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
 
     /* Scratchpad styles */
-    .pad-header { display:flex; align-items:center; justify-content:space-between; margin-top:1rem; }
+    .pad-header { display:flex; align-items:center; justify-content:space-between; margin-top:1rem; gap:.75rem; flex-wrap: wrap; }
     #scratchpad {
       width: 100%;
       height: 260px; /* nice finger-writing height on phones */
@@ -93,7 +93,12 @@
       -webkit-user-select: none;
       cursor: crosshair;
     }
-    .pad-buttons { display:flex; gap:.5rem; }
+    .pad-buttons { display:flex; gap:.5rem; align-items:center; flex-wrap: wrap; }
+    .toggle { border:1px solid var(--border); background:#fff; padding:.45rem .75rem; border-radius:9999px; cursor:pointer; }
+    .toggle.active { background: var(--brand-weak); color: var(--brand); border-color: var(--brand); }
+    .size-wrap { display:flex; align-items:center; gap:.5rem; }
+    .size-wrap input[type=range] { width: 140px; }
+    .size-dot { width: 14px; height: 14px; border-radius: 9999px; background: #0f172a; display:inline-block; }
 
     @media (max-width: 820px) {
       .container { grid-template-columns: 1fr; }
@@ -127,10 +132,18 @@
       <div id="correctValue" class="muted" style="min-height:1.25rem"></div>
       <div id="explanation" class="explanation" style="min-height:3.25rem"></div>
 
-      <!-- SCRATCHPAD -->
+      <!-- SCRATCHPAD CONTROLS -->
       <div class="pad-header">
-        <div class="muted">Working area (use your finger)</div>
+        <div class="muted">Working area (use your finger or mouse)</div>
         <div class="pad-buttons">
+          <button id="penBtn" class="toggle" aria-pressed="true">Pen</button>
+          <button id="eraserBtn" class="toggle" aria-pressed="false">Eraser</button>
+          <div class="size-wrap">
+            <span class="muted">Size</span>
+            <input id="sizeInput" type="range" min="1" max="20" step="1" value="3" aria-label="Pen size" />
+            <span id="sizeValue" class="muted">3</span>
+            <span id="sizeDot" class="size-dot"></span>
+          </div>
           <button id="clearPadBtn" class="secondary">Clear</button>
         </div>
       </div>
@@ -159,6 +172,10 @@
     let counts = { total: 0, correct: 0, incorrect: 0 };
     let mode = localStorage.getItem("mc_mode") || "both"; // "add" | "sub" | "both"
 
+    // Scratchpad state
+    let drawMode = localStorage.getItem('mc_draw_mode') || 'pen'; // 'pen' | 'eraser'
+    let penSize = Number(localStorage.getItem('mc_pen_size') || 3);
+
     // ------- Elements -------
     const questionEl = document.getElementById('question');
     const answerInput = document.getElementById('answer');
@@ -183,7 +200,13 @@
     // Scratchpad elements
     const canvas = document.getElementById('scratchpad');
     const clearPadBtn = document.getElementById('clearPadBtn');
-    let ctx; let isDrawing = false; let lastX = 0; let lastY = 0; let dpr = Math.max(1, window.devicePixelRatio || 1);
+    const penBtn = document.getElementById('penBtn');
+    const eraserBtn = document.getElementById('eraserBtn');
+    const sizeInput = document.getElementById('sizeInput');
+    const sizeValue = document.getElementById('sizeValue');
+    const sizeDot = document.getElementById('sizeDot');
+
+    let ctx; let isDrawing = false; let lastX = 0; let lastY = 0;
 
     // ------- Mode handling -------
     function setMode(selected) {
@@ -320,29 +343,39 @@ ${line3}`;
 
     // ------- Scratchpad (pointer events: mouse + touch + pen) -------
     function setupCanvas() {
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
       ctx = canvas.getContext('2d');
       const rect = canvas.getBoundingClientRect();
       const cssWidth = rect.width; const cssHeight = rect.height;
       // Resize for device pixel ratio for crisp lines
-      const ratio = Math.max(1, window.devicePixelRatio || 1);
-      if (canvas.width !== Math.floor(cssWidth * ratio) || canvas.height !== Math.floor(cssHeight * ratio)) {
-        canvas.width = Math.floor(cssWidth * ratio);
-        canvas.height = Math.floor(cssHeight * ratio);
-        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      if (canvas.width !== Math.floor(cssWidth * dpr) || canvas.height !== Math.floor(cssHeight * dpr)) {
+        canvas.width = Math.floor(cssWidth * dpr);
+        canvas.height = Math.floor(cssHeight * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
-      ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = penSize;
+      ctx.strokeStyle = (drawMode === 'eraser') ? '#ffffff' : '#0f172a';
       clearCanvas();
+      // reflect UI
+      sizeInput.value = String(penSize);
+      sizeValue.textContent = String(penSize);
+      sizeDot.style.transform = `scale(${Math.max(0.5, penSize/6)})`; // just a visual hint
+      updateToolButtons();
     }
 
     function clearCanvas() {
       if (!ctx) return; // setup may not have run yet
       const rect = canvas.getBoundingClientRect();
-      ctx.clearRect(0, 0, rect.width, rect.height);
+      ctx.save();
+      ctx.setTransform(1,0,0,1,0,0); // clear in CSS pixels space
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // fill white background so erasing reveals white, not transparent
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, rect.width, rect.height);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
       ctx.beginPath();
     }
 
@@ -360,11 +393,9 @@ ${line3}`;
         try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
       }
       isDrawing = true;
+      ctx.strokeStyle = (drawMode === 'eraser') ? '#ffffff' : '#0f172a';
+      ctx.lineWidth = penSize;
       const { x, y } = posFromEvent(e);
-      lastX = x; lastY = y;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-    } = posFromEvent(e);
       lastX = x; lastY = y;
       ctx.beginPath();
       ctx.moveTo(x, y);
@@ -376,14 +407,12 @@ ${line3}`;
       ctx.lineTo(x, y);
       ctx.stroke();
       lastX = x; lastY = y;
-    } = posFromEvent(e);
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      lastX = x; lastY = y;
     }
     function pointerUp(e) {
       isDrawing = false;
       ctx.closePath();
+      // return to normal drawing op to avoid accidental erasing later
+      // keep default composite mode
     }
 
     // Prefer Pointer Events; fall back to touch/mouse
@@ -399,25 +428,32 @@ ${line3}`;
         canvas.addEventListener('pointerleave', pointerUp);
       } else {
         // Touch
-        canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); isDrawing=true; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
+        canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); isDrawing=true; ctx.strokeStyle = (drawMode==='eraser')?'#ffffff':'#0f172a'; ctx.lineWidth=penSize; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
         canvas.addEventListener('touchmove', (e)=>{ e.preventDefault(); if(!isDrawing) return; const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }, {passive:false});
-        ['touchend','touchcancel'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
+        ['touchend','touchcancel'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); ctx.globalCompositeOperation='source-over'; }));
         // Mouse
-        canvas.addEventListener('mousedown', (e)=>{ e.preventDefault(); isDrawing=true; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+        canvas.addEventListener('mousedown', (e)=>{ e.preventDefault(); isDrawing=true; ctx.strokeStyle=(drawMode==='eraser')?'#ffffff':'#0f172a'; ctx.lineWidth=penSize; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }); isDrawing=true; ctx.globalCompositeOperation=(drawMode==='eraser')?'destination-out':'source-over'; ctx.lineWidth=penSize; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
         canvas.addEventListener('mousemove', (e)=>{ if(!isDrawing) return; e.preventDefault(); const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
-        ['mouseup','mouseleave'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
-      }
-    } else {
-        // Touch
-        canvas.addEventListener('touchstart', (e)=>{ isDrawing=true; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
-        canvas.addEventListener('touchmove', (e)=>{ if(!isDrawing) return; const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }, {passive:false});
-        ['touchend','touchcancel'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
-        // Mouse
-        canvas.addEventListener('mousedown', (e)=>{ isDrawing=true; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
-        canvas.addEventListener('mousemove', (e)=>{ if(!isDrawing) return; const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
-        ['mouseup','mouseleave'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
+        ['mouseup','mouseleave'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); ctx.globalCompositeOperation='source-over'; }));
       }
     }
+
+    // ------- Tool UI -------
+    function updateToolButtons() {
+      if (drawMode === 'pen') {
+        penBtn.classList.add('active'); penBtn.setAttribute('aria-pressed','true');
+        eraserBtn.classList.remove('active'); eraserBtn.setAttribute('aria-pressed','false');
+      } else {
+        eraserBtn.classList.add('active'); eraserBtn.setAttribute('aria-pressed','true');
+        penBtn.classList.remove('active'); penBtn.setAttribute('aria-pressed','false');
+      }
+      sizeValue.textContent = String(penSize);
+      sizeDot.style.transform = `scale(${Math.max(0.5, penSize/6)})`;
+    }
+
+    penBtn.addEventListener('click', () => { drawMode = 'pen'; localStorage.setItem('mc_draw_mode', 'pen'); updateToolButtons(); });
+    eraserBtn.addEventListener('click', () => { drawMode = 'eraser'; localStorage.setItem('mc_draw_mode', 'eraser'); updateToolButtons(); });
+    sizeInput.addEventListener('input', () => { penSize = Number(sizeInput.value || 3); localStorage.setItem('mc_pen_size', String(penSize)); if (ctx) ctx.lineWidth = penSize; updateToolButtons(); }); localStorage.setItem('mc_pen_size', String(penSize)); updateToolButtons(); });
 
     clearPadBtn.addEventListener('click', clearCanvas);
 
