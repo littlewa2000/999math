@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Math Checker</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -110,7 +110,6 @@
       <div id="result" class="result"></div>
       <div id="correctValue" class="muted" style="min-height:1.25rem"></div>
       <div id="explanation" class="explanation" style="min-height:3.25rem"></div>
-
     </main>
 
     <aside class="card">
@@ -281,19 +280,19 @@
       explanationEl.textContent = `${line1}\n${line2}\n${sep}\n${line3}`;
     }
 
-    resetStatsBtn.addEventListener('click', resetStats);
+    // ------- Events -------
     answerInput.addEventListener('input', handleInput);
     checkBtn.addEventListener('click', checkAnswer);
     nextBtn.addEventListener('click', generateQuestion);
+    resetStatsBtn.addEventListener('click', resetStats);
 
+    // ------- PWA (optional) -------
     if ('serviceWorker' in navigator) {
       try { navigator.serviceWorker.register('sw.js'); } catch (_) {}
     }
 
-    function init() {
-      setMode(mode);
-    }
-    window.requestAnimationFrame(init);
+    // Init
+    setMode(mode);
   </script>
 </body>
 </html>
