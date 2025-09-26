@@ -297,7 +297,7 @@
     nextBtn.addEventListener('click', generateQuestion);
     resetStatsBtn.addEventListener('click', resetStats);
 
-    if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('sw.js'); } catch (_) {} }
+    if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/999math/sw.js'); } catch (_) {} }
 
     function init() {
       setMode(mode);
@@ -307,7 +307,7 @@
       // Keep canvas crisp on resize
       let t; window.addEventListener('resize', ()=>{ clearTimeout(t); t = setTimeout(setupCanvas, 150); });
     }
-    window.requestAnimationFrame(init);
+    window.addEventListener('load', init);
   </script>
 </body>
 </html>
