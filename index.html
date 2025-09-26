@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Math Checker</title>
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -79,6 +79,22 @@
     }
     .stat .kpi { font-size: 1.5rem; font-variant-numeric: tabular-nums; }
 
+    /* Scratchpad styles */
+    .pad-header { display:flex; align-items:center; justify-content:space-between; margin-top:1rem; }
+    #scratchpad {
+      width: 100%;
+      height: 260px; /* nice finger-writing height on phones */
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      touch-action: none; /* important for smooth pointer events on iOS */
+      display: block;
+      user-select: none; /* avoid text selection while drawing */
+      -webkit-user-select: none;
+      cursor: crosshair;
+    }
+    .pad-buttons { display:flex; gap:.5rem; }
+
     @media (max-width: 820px) {
       .container { grid-template-columns: 1fr; }
     }
@@ -110,6 +126,16 @@
       <div id="result" class="result"></div>
       <div id="correctValue" class="muted" style="min-height:1.25rem"></div>
       <div id="explanation" class="explanation" style="min-height:3.25rem"></div>
+
+      <!-- SCRATCHPAD -->
+      <div class="pad-header">
+        <div class="muted">Working area (use your finger)</div>
+        <div class="pad-buttons">
+          <button id="clearPadBtn" class="secondary">Clear</button>
+        </div>
+      </div>
+      <canvas id="scratchpad" aria-label="Handwriting working area"></canvas>
+
     </main>
 
     <aside class="card">
@@ -154,6 +180,11 @@
     const modeSubBtn = document.getElementById('mode-sub');
     const modeBothBtn = document.getElementById('mode-both');
 
+    // Scratchpad elements
+    const canvas = document.getElementById('scratchpad');
+    const clearPadBtn = document.getElementById('clearPadBtn');
+    let ctx; let isDrawing = false; let lastX = 0; let lastY = 0; let dpr = Math.max(1, window.devicePixelRatio || 1);
+
     // ------- Mode handling -------
     function setMode(selected) {
       mode = selected;
@@ -189,6 +220,9 @@
       nextBtn.disabled = true;
       answerInput.value = '';
       answerInput.focus();
+
+      // Clear the scratchpad for the new question
+      clearCanvas();
 
       // Build a question according to mode
       num1 = randInt(999);
@@ -268,6 +302,7 @@
       counts = { total: 0, correct: 0, incorrect: 0 };
       updateStats();
       generateQuestion();
+      clearCanvas();
     }
 
     function showStandardAlgorithm(a, b, op, ans) {
@@ -283,6 +318,109 @@ ${sep}
 ${line3}`;
     }
 
+    // ------- Scratchpad (pointer events: mouse + touch + pen) -------
+    function setupCanvas() {
+      ctx = canvas.getContext('2d');
+      const rect = canvas.getBoundingClientRect();
+      const cssWidth = rect.width; const cssHeight = rect.height;
+      // Resize for device pixel ratio for crisp lines
+      const ratio = Math.max(1, window.devicePixelRatio || 1);
+      if (canvas.width !== Math.floor(cssWidth * ratio) || canvas.height !== Math.floor(cssHeight * ratio)) {
+        canvas.width = Math.floor(cssWidth * ratio);
+        canvas.height = Math.floor(cssHeight * ratio);
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      }
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#0f172a';
+      clearCanvas();
+    }
+
+    function clearCanvas() {
+      if (!ctx) return; // setup may not have run yet
+      const rect = canvas.getBoundingClientRect();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, rect.width, rect.height);
+      ctx.beginPath();
+    }
+
+    function posFromEvent(e) {
+      const r = canvas.getBoundingClientRect();
+      if (e.touches && e.touches[0]) {
+        return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+      }
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+
+    function pointerDown(e) {
+      e.preventDefault();
+      if (canvas.setPointerCapture && e.pointerId !== undefined) {
+        try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      isDrawing = true;
+      const { x, y } = posFromEvent(e);
+      lastX = x; lastY = y;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    } = posFromEvent(e);
+      lastX = x; lastY = y;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    }
+    function pointerMove(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      const { x, y } = posFromEvent(e);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      lastX = x; lastY = y;
+    } = posFromEvent(e);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      lastX = x; lastY = y;
+    }
+    function pointerUp(e) {
+      isDrawing = false;
+      ctx.closePath();
+    }
+
+    // Prefer Pointer Events; fall back to touch/mouse
+    function bindPadEvents() {
+      // Disable right-click menu on the canvas to keep drawing uninterrupted
+      canvas.addEventListener('contextmenu', (e)=> e.preventDefault());
+
+      if (window.PointerEvent) {
+        canvas.addEventListener('pointerdown', pointerDown);
+        canvas.addEventListener('pointermove', pointerMove);
+        canvas.addEventListener('pointerup', pointerUp);
+        canvas.addEventListener('pointercancel', pointerUp);
+        canvas.addEventListener('pointerleave', pointerUp);
+      } else {
+        // Touch
+        canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); isDrawing=true; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
+        canvas.addEventListener('touchmove', (e)=>{ e.preventDefault(); if(!isDrawing) return; const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }, {passive:false});
+        ['touchend','touchcancel'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
+        // Mouse
+        canvas.addEventListener('mousedown', (e)=>{ e.preventDefault(); isDrawing=true; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+        canvas.addEventListener('mousemove', (e)=>{ if(!isDrawing) return; e.preventDefault(); const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
+        ['mouseup','mouseleave'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
+      }
+    } else {
+        // Touch
+        canvas.addEventListener('touchstart', (e)=>{ isDrawing=true; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
+        canvas.addEventListener('touchmove', (e)=>{ if(!isDrawing) return; const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }, {passive:false});
+        ['touchend','touchcancel'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
+        // Mouse
+        canvas.addEventListener('mousedown', (e)=>{ isDrawing=true; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
+        canvas.addEventListener('mousemove', (e)=>{ if(!isDrawing) return; const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
+        ['mouseup','mouseleave'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
+      }
+    }
+
+    clearPadBtn.addEventListener('click', clearCanvas);
+
     // ------- Events -------
     answerInput.addEventListener('input', handleInput);
     checkBtn.addEventListener('click', checkAnswer);
@@ -295,7 +433,16 @@ ${line3}`;
     }
 
     // Init
-    setMode(mode);
+    function init() {
+      setMode(mode);
+      setupCanvas();
+      bindPadEvents();
+      // Resize observer to keep canvas crisp when layout changes
+      let resizeTimer;
+      window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(setupCanvas, 150); });
+    }
+    // Wait a tick for layout to settle so canvas size is correct
+    window.requestAnimationFrame(init);
   </script>
 </body>
 </html>
