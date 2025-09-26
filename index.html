@@ -277,7 +277,10 @@
       const line2 = `${op}${String(b).padStart(w - 1, ' ')}`;
       const sep = '-'.repeat(w);
       const line3 = `${String(ans).padStart(w, ' ')}`;
-      explanationEl.textContent = `${line1}\n${line2}\n${sep}\n${line3}`;
+      explanationEl.textContent = `${line1}
+${line2}
+${sep}
+${line3}`;
     }
 
     // ------- Events -------
