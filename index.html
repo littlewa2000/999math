@@ -33,7 +33,9 @@
     .mode-buttons button { border: 1px solid var(--border); background: #fff; padding: .35rem .7rem; border-radius: 9999px; cursor: pointer; font-size: .9rem; }
     .mode-buttons button.active { background: var(--brand-weak); border-color: var(--brand); color: var(--brand); }
 
-    .question { font-size: 2rem; letter-spacing: .5px; text-align: center; margin: .75rem 0; }
+    .controls-row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin:.25rem 0 .5rem 0; }
+    .digit-wrap { display:flex; align-items:center; gap:.4rem; }
+    .question { font-size: 2rem; letter-spacing: .5px; text-align: center; margin: .5rem 0 .75rem 0; }
     .row { display: flex; gap: .5rem; align-items: center; margin: .25rem 0; }
     input[type="number"] { width: 120px; padding: .5rem .6rem; font-size: 1rem; border-radius: 8px; border: 1px solid var(--border); }
     button.primary { background: var(--brand); color: #fff; border: none; padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
@@ -73,6 +75,20 @@
         <button id="mode-both" aria-pressed="true" class="active">Add &amp; Subtract</button>
       </div>
 
+      <!-- NEW: Digit length selector -->
+      <div class="controls-row">
+        <div class="digit-wrap">
+          <label for="digitSelect" class="muted">Digits:</label>
+          <select id="digitSelect">
+            <option value="2">2 (0–99)</option>
+            <option value="3" selected>3 (0–999)</option>
+            <option value="4">4 (0–9999)</option>
+          </select>
+          <span id="digitRangeLabel" class="muted">Range: 0–999</span>
+        </div>
+        <div class="muted" style="margin-left:auto">Time: <span id="timer" class="timer">0.0s</span></div>
+      </div>
+
       <div id="question" class="question">0 + 0</div>
 
       <div class="row">
@@ -80,7 +96,6 @@
         <input id="answer" type="number" inputmode="numeric" min="0" max="999" placeholder="0–999" />
         <button id="checkBtn" class="primary" disabled>Check</button>
         <button id="nextBtn" class="secondary" disabled>Next</button>
-        <div class="muted" style="margin-left:auto">Time: <span id="timer" class="timer">0s</span></div>
       </div>
 
       <div id="result" class="result"></div>
@@ -117,197 +132,364 @@
   </div>
 
   <script>
-    // ------- State -------
-    let num1 = 0, num2 = 0, operator = "+", correctResult = 0;
-    let answered = false; let timer = null; let seconds = 0;
-    let counts = { total: 0, correct: 0, incorrect: 0 };
-    let mode = localStorage.getItem("mc_mode") || "both"; // "add" | "sub" | "both"
+    // ---------------------------
+    // Storage keys & utilities
+    // ---------------------------
+    const STORAGE = {
+      digitCount: "math999_digitCount",
+      mode: "math999_mode",
+      stats: "math999_stats",
+    };
 
-    // Drawing state
-    let penSize = Number(localStorage.getItem('mc_pen_size') || 3);
-    let isDrawing = false; let ctx; const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const Modes = Object.freeze({
+      ADD: "add",
+      SUB: "sub",
+      BOTH: "both",
+    });
 
-    // ------- Elements -------
-    const questionEl = document.getElementById('question');
-    const answerInput = document.getElementById('answer');
-    const checkBtn = document.getElementById('checkBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const resultEl = document.getElementById('result');
-    const correctValueEl = document.getElementById('correctValue');
-    const timerEl = document.getElementById('timer');
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+    function randIntInclusive(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-    const totalCountEl = document.getElementById('totalCount');
-    const correctCountEl = document.getElementById('correctCount');
-    const incorrectCountEl = document.getElementById('incorrectCount');
-    const correctRateEl = document.getElementById('correctRate');
+    // ---------------------------
+    // Digit length state
+    // ---------------------------
+    function getStoredDigits() {
+      const d = parseInt(localStorage.getItem(STORAGE.digitCount), 10);
+      return [2,3,4].includes(d) ? d : 3;
+    }
+    let digitCount = getStoredDigits();
+    function currentMaxNumber() { return Math.pow(10, digitCount) - 1; }
 
-    const resetStatsBtn = document.getElementById('resetStats');
-
-    const modeAddBtn = document.getElementById('mode-add');
-    const modeSubBtn = document.getElementById('mode-sub');
-    const modeBothBtn = document.getElementById('mode-both');
-
-    // Scratchpad elements
-    const canvas = document.getElementById('scratchpad');
-    const sizeInput = document.getElementById('sizeInput');
-    const sizeValue = document.getElementById('sizeValue');
-    const clearPadBtn = document.getElementById('clearPadBtn');
-
-    // ------- Mode handling -------
-    function setMode(selected) {
-      mode = selected;
-      localStorage.setItem('mc_mode', mode);
-      [modeAddBtn, modeSubBtn, modeBothBtn].forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed','false'); });
-      if (mode === 'add') { modeAddBtn.classList.add('active'); modeAddBtn.setAttribute('aria-pressed','true'); }
-      else if (mode === 'sub') { modeSubBtn.classList.add('active'); modeSubBtn.setAttribute('aria-pressed','true'); }
-      else { modeBothBtn.classList.add('active'); modeBothBtn.setAttribute('aria-pressed','true'); }
-      generateQuestion();
+    function updateDigitUI() {
+      const sel = document.getElementById("digitSelect");
+      const label = document.getElementById("digitRangeLabel");
+      const answer = document.getElementById("answer");
+      const maxN = currentMaxNumber();
+      if (sel) sel.value = String(digitCount);
+      if (label) label.textContent = `Range: 0–${maxN}`;
+      if (answer) {
+        answer.max = String(maxN);
+        answer.placeholder = `0–${maxN}`;
+        answer.value = "";
+      }
     }
 
-    modeAddBtn.addEventListener('click', () => setMode('add'));
-    modeSubBtn.addEventListener('click', () => setMode('sub'));
-    modeBothBtn.addEventListener('click', () => setMode('both'));
+    // ---------------------------
+    // Mode state
+    // ---------------------------
+    function getStoredMode() {
+      const m = localStorage.getItem(STORAGE.mode);
+      return [Modes.ADD, Modes.SUB, Modes.BOTH].includes(m) ? m : Modes.BOTH;
+    }
+    let mode = getStoredMode();
 
-    // ------- Core logic -------
-    function randInt(max) { return Math.floor(Math.random() * (max + 1)); }
+    function updateModeUI() {
+      const btnAdd = document.getElementById("mode-add");
+      const btnSub = document.getElementById("mode-sub");
+      const btnBoth = document.getElementById("mode-both");
+      const map = {
+        [Modes.ADD]: btnAdd,
+        [Modes.SUB]: btnSub,
+        [Modes.BOTH]: btnBoth
+      };
+      [btnAdd,btnSub,btnBoth].forEach(b => {
+        if (!b) return;
+        b.classList.remove("active");
+        b.setAttribute("aria-pressed","false");
+      });
+      const active = map[mode];
+      if (active) {
+        active.classList.add("active");
+        active.setAttribute("aria-pressed","true");
+      }
+    }
 
-    function chooseOperator() {
-      if (mode === 'add') return '+';
-      if (mode === 'sub') return '-';
-      return Math.random() < 0.5 ? '+' : '-';
+    // ---------------------------
+    // Stats
+    // ---------------------------
+    const defaultStats = { total: 0, correct: 0, incorrect: 0 };
+    function loadStats() {
+      try {
+        const raw = localStorage.getItem(STORAGE.stats);
+        if (!raw) return { ...defaultStats };
+        const obj = JSON.parse(raw);
+        return { ...defaultStats, ...obj };
+      } catch { return { ...defaultStats }; }
+    }
+    function saveStats() { localStorage.setItem(STORAGE.stats, JSON.stringify(stats)); }
+    let stats = loadStats();
+
+    function renderStats() {
+      const { total, correct, incorrect } = stats;
+      const rate = total ? ((correct / total) * 100).toFixed(1) : "0.0";
+      document.getElementById("totalCount").textContent = String(total);
+      document.getElementById("correctCount").textContent = String(correct);
+      document.getElementById("incorrectCount").textContent = String(incorrect);
+      document.getElementById("correctRate").textContent = `${rate}%`;
+    }
+
+    // ---------------------------
+    // Question generation
+    // ---------------------------
+    let current = { a: 0, b: 0, op: "+", answer: 0 };
+    const qEl = document.getElementById("question");
+    const answerEl = document.getElementById("answer");
+    const resultEl = document.getElementById("result");
+    const correctValEl = document.getElementById("correctValue");
+    const checkBtn = document.getElementById("checkBtn");
+    const nextBtn = document.getElementById("nextBtn");
+
+    function generateOperands() {
+      const maxN = currentMaxNumber();
+      let a = randIntInclusive(0, maxN);
+      let b = randIntInclusive(0, maxN);
+      if (mode === Modes.SUB || (mode === Modes.BOTH && Math.random() < 0.5)) {
+        // subtraction: keep non-negative result by ensuring a >= b
+        if (b > a) [a, b] = [b, a];
+        return { a, b, op: "−", answer: a - b };
+      } else {
+        return { a, b, op: "+", answer: a + b };
+      }
+    }
+
+    function renderQuestion() {
+      qEl.textContent = `${current.a} ${current.op} ${current.b}`;
+    }
+
+    // ---------------------------
+    // Timer
+    // ---------------------------
+    const timerEl = document.getElementById("timer");
+    let tStart = 0;
+    let tHandle = null;
+    function formatSeconds(ms) {
+      return (ms / 1000).toFixed(1) + "s";
+    }
+    function startTimer() {
+      stopTimer();
+      tStart = performance.now();
+      tHandle = setInterval(() => {
+        const now = performance.now();
+        timerEl.textContent = formatSeconds(now - tStart);
+      }, 100);
+    }
+    function stopTimer() {
+      if (tHandle) clearInterval(tHandle);
+      tHandle = null;
+    }
+
+    // ---------------------------
+    // Scratchpad
+    // ---------------------------
+    const canvas = document.getElementById("scratchpad");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const sizeInput = document.getElementById("sizeInput");
+    const sizeValue = document.getElementById("sizeValue");
+    const clearPadBtn = document.getElementById("clearPadBtn");
+
+    function resizeCanvasToCSS() {
+      const { width, height } = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.scale(dpr, dpr);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+    }
+
+    let drawing = false;
+    let last = null;
+
+    function getPoint(e) {
+      if (e.touches && e.touches[0]) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: e.touches[0].clientX - rect.left,
+          y: e.touches[0].clientY - rect.top
+        };
+      } else {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+      }
+    }
+
+    function setStrokeWidth(w) {
+      ctx.lineWidth = clamp(w, 1, 20);
+      sizeValue.textContent = String(ctx.lineWidth);
+    }
+
+    function clearDrawingArea() {
+      ctx.save();
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.restore();
+    }
+
+    // ---------------------------
+    // Flow
+    // ---------------------------
+    function resetUIForNewQuestion() {
+      resultEl.textContent = "";
+      resultEl.classList.remove("ok","bad");
+      correctValEl.textContent = "";
+      answerEl.value = "";
+      checkBtn.disabled = false;
+      nextBtn.disabled = true;
+      answerEl.removeAttribute("disabled");
+      answerEl.focus();
     }
 
     function generateQuestion() {
-      // Reset UI state
-      resultEl.textContent = '';
-      resultEl.className = 'result';
-      correctValueEl.textContent = '';
-      answered = false;
-      checkBtn.disabled = true; // until user types something valid
-      nextBtn.disabled = true;
-      answerInput.value = '';
-      answerInput.focus();
-
-      // Clear drawing area for new question
-      clearCanvas();
-
-      // Build a question according to mode
-      num1 = randInt(999);
-      num2 = randInt(999);
-      operator = chooseOperator();
-      if (operator === '-' && num2 > num1) { [num1, num2] = [num2, num1]; }
-      correctResult = operator === '+' ? (num1 + num2) : (num1 - num2);
-      if (correctResult < 0 || correctResult > 999) return generateQuestion();
-
-      questionEl.textContent = `${num1} ${operator} ${num2}`;
+      current = generateOperands();
+      renderQuestion();
+      resetUIForNewQuestion();
+      clearDrawingArea();
       startTimer();
-      counts.total += 1; updateStats();
     }
-
-    function handleInput() {
-      const val = answerInput.value; if (val === '') { checkBtn.disabled = true; return; }
-      const n = Number(val); checkBtn.disabled = !(Number.isInteger(n) && n >= 0 && n <= 999);
-    }
-
-    function startTimer() { stopTimer(); seconds = 0; timerEl.textContent = '0s'; timer = setInterval(()=>{ seconds += 1; timerEl.textContent = `${seconds}s`; }, 1000); }
-    function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
 
     function checkAnswer() {
-      if (answered) return;
-      const n = Number(answerInput.value); if (!Number.isInteger(n) || n < 0 || n > 999) return;
-      answered = true; stopTimer(); checkBtn.disabled = true; nextBtn.disabled = false;
-      if (n === correctResult) { resultEl.textContent = 'Correct!'; resultEl.classList.add('ok'); counts.correct += 1; }
-      else { resultEl.textContent = 'Incorrect.'; resultEl.classList.add('bad'); correctValueEl.textContent = `Correct answer: ${correctResult}`; counts.incorrect += 1; }
-      updateStats();
-    }
-
-    function updateStats() { totalCountEl.textContent = counts.total; correctCountEl.textContent = counts.correct; incorrectCountEl.textContent = counts.incorrect; const acc = counts.total ? (counts.correct / counts.total) * 100 : 0; correctRateEl.textContent = `${acc.toFixed(1)}%`; }
-    function resetStats() { counts = { total: 0, correct: 0, incorrect: 0 }; updateStats(); generateQuestion(); }
-
-    // ------- Drawing area (mouse + touch + pen) -------
-    function setupCanvas() {
-      ctx = canvas.getContext('2d');
-      const rect = canvas.getBoundingClientRect();
-      const cssW = rect.width, cssH = rect.height;
-      // Resize backing store for crisp lines on high-DPI
-      if (canvas.width !== Math.floor(cssW * dpr) || canvas.height !== Math.floor(cssH * dpr)) {
-        canvas.width = Math.floor(cssW * dpr);
-        canvas.height = Math.floor(cssH * dpr);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      }
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = penSize;
-      clearCanvas();
-      // reflect UI
-      sizeInput.value = String(penSize); sizeValue.textContent = String(penSize);
-    }
-
-    function clearCanvas() {
-      if (!ctx) return;
-      const rect = canvas.getBoundingClientRect();
-      ctx.save();
-      ctx.setTransform(1,0,0,1,0,0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // Fill white so the background is opaque
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.restore();
-      ctx.beginPath();
-    }
-
-    function posFromEvent(e) {
-      const r = canvas.getBoundingClientRect();
-      if (e.touches && e.touches[0]) return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
-      return { x: e.clientX - r.left, y: e.clientY - r.top };
-    }
-
-    function pointerDown(e) { e.preventDefault(); isDrawing = true; ctx.lineWidth = penSize; const p = posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }
-    function pointerMove(e) { if (!isDrawing) return; e.preventDefault(); const p = posFromEvent(e); ctx.lineTo(p.x, p.y); ctx.stroke(); }
-    function pointerUp() { isDrawing = false; ctx.closePath(); }
-
-    function bindPadEvents() {
-      // Disable right-click menu on canvas
-      canvas.addEventListener('contextmenu', (e)=> e.preventDefault());
-      if (window.PointerEvent) {
-        canvas.addEventListener('pointerdown', pointerDown);
-        canvas.addEventListener('pointermove', pointerMove);
-        canvas.addEventListener('pointerup', pointerUp);
-        canvas.addEventListener('pointerleave', pointerUp);
-        canvas.addEventListener('pointercancel', pointerUp);
+      const val = parseInt(answerEl.value, 10);
+      const correct = (val === current.answer);
+      stopTimer();
+      stats.total += 1;
+      if (correct) {
+        stats.correct += 1;
+        resultEl.textContent = "Correct!";
+        resultEl.classList.add("ok");
+        resultEl.classList.remove("bad");
+        correctValEl.textContent = "";
       } else {
-        // Touch
-        canvas.addEventListener('touchstart', (e)=>{ e.preventDefault(); isDrawing=true; ctx.lineWidth=penSize; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }, {passive:false});
-        canvas.addEventListener('touchmove', (e)=>{ e.preventDefault(); if(!isDrawing) return; const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); }, {passive:false});
-        ['touchend','touchcancel'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
-        // Mouse
-        canvas.addEventListener('mousedown', (e)=>{ e.preventDefault(); isDrawing=true; ctx.lineWidth=penSize; const p=posFromEvent(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); });
-        canvas.addEventListener('mousemove', (e)=>{ if(!isDrawing) return; e.preventDefault(); const p=posFromEvent(e); ctx.lineTo(p.x,p.y); ctx.stroke(); });
-        ['mouseup','mouseleave'].forEach(ev=> canvas.addEventListener(ev, ()=>{ isDrawing=false; ctx.closePath(); }));
+        stats.incorrect += 1;
+        resultEl.textContent = "Try again";
+        resultEl.classList.add("bad");
+        resultEl.classList.remove("ok");
+        correctValEl.textContent = `Correct answer: ${current.answer}`;
       }
+      renderStats();
+      saveStats();
+      checkBtn.disabled = true;
+      nextBtn.disabled = false;
+      answerEl.setAttribute("disabled","true");
     }
 
-    // Controls
-    sizeInput.addEventListener('input', () => { penSize = Number(sizeInput.value || 3); localStorage.setItem('mc_pen_size', String(penSize)); if (ctx) ctx.lineWidth = penSize; sizeValue.textContent = String(penSize); });
-    clearPadBtn.addEventListener('click', clearCanvas);
-
-    // ------- Events -------
-    answerInput.addEventListener('input', handleInput);
-    checkBtn.addEventListener('click', checkAnswer);
-    nextBtn.addEventListener('click', generateQuestion);
-    resetStatsBtn.addEventListener('click', resetStats);
-
-    if ('serviceWorker' in navigator) { try { navigator.serviceWorker.register('/999math/sw.js'); } catch (_) {} }
-
-    function init() {
-      setMode(mode);
-      // Setup drawing area
-      setupCanvas();
-      bindPadEvents();
-      // Keep canvas crisp on resize
-      let t; window.addEventListener('resize', ()=>{ clearTimeout(t); t = setTimeout(setupCanvas, 150); });
+    function handleNext() {
+      generateQuestion();
     }
-    window.addEventListener('load', init);
+
+    // ---------------------------
+    // Init & Events
+    // ---------------------------
+    function initDigitSelector() {
+      updateDigitUI();
+      const sel = document.getElementById("digitSelect");
+      sel.addEventListener("change", () => {
+        digitCount = parseInt(sel.value, 10);
+        localStorage.setItem(STORAGE.digitCount, String(digitCount));
+        updateDigitUI();
+        generateQuestion();
+      });
+    }
+
+    function initModes() {
+      const btnAdd = document.getElementById("mode-add");
+      const btnSub = document.getElementById("mode-sub");
+      const btnBoth = document.getElementById("mode-both");
+
+      function setMode(newMode) {
+        mode = newMode;
+        localStorage.setItem(STORAGE.mode, newMode);
+        updateModeUI();
+        generateQuestion();
+      }
+
+      btnAdd.addEventListener("click", () => setMode(Modes.ADD));
+      btnSub.addEventListener("click", () => setMode(Modes.SUB));
+      btnBoth.addEventListener("click", () => setMode(Modes.BOTH));
+      updateModeUI();
+    }
+
+    function initAnswerFlow() {
+      checkBtn.addEventListener("click", checkAnswer);
+      nextBtn.addEventListener("click", handleNext);
+      answerEl.addEventListener("input", () => {
+        // enable Check only if there's some input
+        checkBtn.disabled = (answerEl.value.trim() === "");
+      });
+      // Enter to Check/Next
+      answerEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          if (!checkBtn.disabled) checkBtn.click();
+          else if (!nextBtn.disabled) nextBtn.click();
+        }
+      });
+    }
+
+    function initStats() {
+      renderStats();
+      document.getElementById("resetStats").addEventListener("click", () => {
+        stats = { ...defaultStats };
+        saveStats();
+        renderStats();
+      });
+    }
+
+    function initPad() {
+      resizeCanvasToCSS();
+      window.addEventListener("resize", () => {
+        // keep content cleared on resize for simplicity
+        resizeCanvasToCSS();
+        clearDrawingArea();
+      });
+      setStrokeWidth(parseInt(sizeInput.value, 10) || 3);
+      sizeInput.addEventListener("input", () => setStrokeWidth(parseInt(sizeInput.value, 10)));
+
+      const start = (e) => { drawing = true; last = getPoint(e); e.preventDefault(); };
+      const move = (e) => {
+        if (!drawing) return;
+        const p = getPoint(e);
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        last = p;
+        e.preventDefault();
+      };
+      const end = (e) => { drawing = false; last = null; e.preventDefault(); };
+
+      canvas.addEventListener("mousedown", start);
+      canvas.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", end);
+
+      canvas.addEventListener("touchstart", start, { passive:false });
+      canvas.addEventListener("touchmove", move, { passive:false });
+      canvas.addEventListener("touchend", end, { passive:false });
+      canvas.addEventListener("touchcancel", end, { passive:false });
+
+      clearPadBtn.addEventListener("click", clearDrawingArea);
+    }
+
+    // Optional: read ?digits=2|3|4
+    (function readDigitsFromURL() {
+      const p = new URLSearchParams(window.location.search);
+      const d = parseInt(p.get("digits"), 10);
+      if ([2,3,4].includes(d)) {
+        digitCount = d;
+        localStorage.setItem(STORAGE.digitCount, String(digitCount));
+      }
+    })();
+
+    // Boot
+    document.addEventListener("DOMContentLoaded", () => {
+      initDigitSelector();
+      initModes();
+      initAnswerFlow();
+      initStats();
+      initPad();
+      generateQuestion();
+    });
   </script>
 </body>
 </html>
