@@ -2,111 +2,192 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>999 Math — Tabs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Math Checker</title>
 
-  <!-- Minimal, modern reset -->
+  <!-- PWA / Apple -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+  <!-- Your existing styles (unchanged) -->
   <style>
     :root {
-      --bg: #0b0f14;
-      --card: #11161d;
-      --muted: #9fb2c8;
-      --text: #e9f0f7;
-      --accent: #4da3ff;
-      --accent-weak: #2b74c7;
-      --border: #203040;
-      --shadow: 0 6px 24px rgba(0,0,0,.3);
-      color-scheme: light dark;
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --ok: #16a34a;
+      --bad: #dc2626;
+      --brand: #2563eb;
+      --brand-weak: #dbeafe;
+      --border: #e5e7eb;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
     * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0; background: var(--bg); color: var(--text);
-      font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    }
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; color: var(--text); background: var(--bg); }
 
-    /* Container */
-    .shell { max-width: 960px; margin: 0 auto; padding: 16px; }
-
-    /* Tabs header */
-    .tabs {
-      display: flex; gap: 8px; align-items: center;
-      border-bottom: 1px solid var(--border);
-      position: sticky; top: 0; background: var(--bg); z-index: 10;
-    }
-    .tab {
-      appearance: none; border: 1px solid var(--border); background: transparent;
-      color: var(--muted); padding: 10px 14px; border-radius: 10px 10px 0 0;
-      cursor: pointer; font-weight: 600; letter-spacing: .2px;
-      transform: translateY(1px);
-    }
-    .tab[aria-selected="true"] {
-      color: var(--text); border-bottom-color: var(--bg);
-      background: var(--card); box-shadow: var(--shadow);
-    }
-    .spacer { flex: 1 1 auto; }
-
-    /* Panels */
-    .panels { background: var(--card); border: 1px solid var(--border);
-      border-radius: 0 12px 12px 12px; padding: 16px; box-shadow: var(--shadow); }
-    .tab-panel { display: none; animation: fade .18s ease-in; }
-    .tab-panel.is-active { display: block; }
-    @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
-
-    /* Info list */
-    .info-list { display: grid; gap: 12px; }
-    .info-item {
-      padding: 12px 14px; border: 1px solid var(--border);
-      border-radius: 10px; background: #0f151c;
-    }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 3fr 2fr; grid-gap: 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
     .muted { color: var(--muted); }
+
+    /* Mode Buttons */
+    .mode-buttons { display: flex; gap: .5rem; margin: .25rem 0 .75rem 0; flex-wrap: wrap; }
+    .mode-buttons button { border: 1px solid var(--border); background: #fff; padding: .35rem .7rem; border-radius: 9999px; cursor: pointer; font-size: .9rem; }
+    .mode-buttons button.active { background: var(--brand-weak); border-color: var(--brand); color: var(--brand); }
+
+    .question { font-size: 2rem; letter-spacing: .5px; text-align: center; margin: .75rem 0; }
+    .row { display: flex; gap: .5rem; align-items: center; margin: .25rem 0; }
+    input[type="number"] { width: 120px; padding: .5rem .6rem; font-size: 1rem; border-radius: 8px; border: 1px solid var(--border); }
+    button.primary { background: var(--brand); color: #fff; border: none; padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
+    button.secondary { background: #fff; color: var(--text); border: 1px solid var(--border); padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+
+    .result { min-height: 1.5rem; font-weight: 600; margin-top: .25rem; }
+    .ok { color: var(--ok); }
+    .bad { color: var(--bad); }
+
+    .timer { font-variant-numeric: tabular-nums; }
+
+    /* Scratchpad */
+    .pad-header { display:flex; align-items:center; justify-content:space-between; margin-top:.5rem; gap:.75rem; flex-wrap:wrap; }
+    .pad-controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+    #scratchpad { width:100%; height:240px; background:#fff; border:1px solid var(--border); border-radius:12px; display:block; touch-action:none; user-select:none; -webkit-user-select:none; cursor: crosshair; }
+    .size-wrap { display:flex; align-items:center; gap:.4rem; }
+    .size-wrap input[type=range] { width: 140px; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
+    .stat { border: 1px solid var(--border); border-radius: 10px; padding: .5rem; text-align: center; background: #fff; }
+    .stat .kpi { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+
+    @media (max-width: 820px) { .container { grid-template-columns: 1fr; } }
+
+    /* --- Tabs (added) --- */
+    .tabs {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; gap: 8px; align-items: center;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      padding: .5rem 1rem;
+    }
+    .tabs .tab {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      padding: .45rem .9rem;
+      border-radius: 10px 10px 0 0;
+      cursor: pointer;
+      font-weight: 600;
+      letter-spacing: .2px;
+    }
+    .tabs .tab[aria-selected="true"] {
+      border-bottom-color: var(--bg);
+      box-shadow: 0 2px 10px rgba(0,0,0,.04);
+    }
+    .panels { padding: 0; }
+    .tab-panel { display: none; }
+    .tab-panel.is-active { display: block; }
+    .info-wrap { max-width: 1000px; margin: 1rem auto; padding: 0 1rem; }
+    .info-list { display: grid; gap: 12px; }
+    .info-item { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
     .caps { text-transform: uppercase; letter-spacing: .12em; font-size: 12px; color: var(--muted); }
+    a { color: var(--brand); text-decoration: none; }
+    a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <!-- Tabs header -->
-    <div class="tabs" role="tablist" aria-label="Pages">
-      <button class="tab" role="tab" id="tab-practice" aria-controls="panel-practice" aria-selected="true">Practice</button>
-      <button class="tab" role="tab" id="tab-info" aria-controls="panel-info" aria-selected="false">Info</button>
-      <div class="spacer"></div>
-      <!-- (Optional) Right-side actions could go here -->
-    </div>
 
-    <!-- Panels -->
-    <div class="panels">
-      <!-- PRACTICE TAB: put your entire existing page inside this panel -->
-      <section id="panel-practice" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-practice">
-        <!-- =============================================== -->
-        <!-- BEGIN: your existing page (everything you have now) -->
-        
-        <!-- 🔽 Replace this demo with your real content -->
-        <div class="muted" style="padding:8px 0">
-          <span class="caps">Practice</span>
-          <div>This panel contains your current 999-math app UI (problems, digit selector, draw area, Next button, etc.).</div>
-        </div>
-        <!-- 🔼 Replace up to here -->
+  <!-- Tabs header -->
+  <div class="tabs" role="tablist" aria-label="Pages">
+    <button class="tab" role="tab" id="tab-practice" aria-controls="panel-practice" aria-selected="true">Practice</button>
+    <button class="tab" role="tab" id="tab-info" aria-controls="panel-info" aria-selected="false">Info</button>
+  </div>
 
-        <!-- END: your existing page -->
-        <!-- =============================================== -->
-      </section>
+  <!-- Panels -->
+  <div class="panels">
+    <!-- PRACTICE: your existing page (unchanged) -->
+    <section id="panel-practice" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-practice">
 
-      <!-- INFO TAB: lightweight list of details/links -->
-      <section id="panel-info" class="tab-panel" role="tabpanel" aria-labelledby="tab-info">
-        <h2 style="margin:4px 0 12px 0">Information</h2>
+      <div class="container">
+        <main class="card">
+          <h1>Math Checker</h1>
+          <div class="muted">Practice quick mental arithmetic. Choose a mode, answer, and track your stats.</div>
+
+          <!-- MODE BUTTONS -->
+          <div class="mode-buttons" role="group" aria-label="Mode selector">
+            <button id="mode-add" aria-pressed="false">Addition Only</button>
+            <button id="mode-sub" aria-pressed="false">Subtraction Only</button>
+            <button id="mode-both" aria-pressed="true" class="active">Add &amp; Subtract</button>
+          </div>
+
+          <div id="question" class="question">0 + 0</div>
+
+          <div class="row">
+            <label for="answer" class="muted" style="width:70px">Answer</label>
+            <input id="answer" type="number" inputmode="numeric" min="0" max="999" placeholder="0–999" />
+            <button id="checkBtn" class="primary" disabled>Check</button>
+            <button id="nextBtn" class="secondary" disabled>Next</button>
+            <div class="muted" style="margin-left:auto">Time: <span id="timer" class="timer">0s</span></div>
+          </div>
+
+          <div id="result" class="result"></div>
+          <div id="correctValue" class="muted" style="min-height:1rem"></div>
+
+          <!-- Scratchpad: drawing area -->
+          <div class="pad-header">
+            <div class="muted">Working area (draw with mouse or finger)</div>
+            <div class="pad-controls">
+              <div class="size-wrap">
+                <span class="muted">Pen size</span>
+                <input id="sizeInput" type="range" min="1" max="20" step="1" value="3" />
+                <span id="sizeValue" class="muted">3</span>
+              </div>
+              <button id="clearPadBtn" class="secondary">Clear</button>
+            </div>
+          </div>
+          <canvas id="scratchpad" aria-label="Drawing area"></canvas>
+
+        </main>
+
+        <aside class="card">
+          <h2 style="margin-top:0">Statistics</h2>
+          <div class="stats-grid">
+            <div class="stat"><div class="muted">Total</div><div id="totalCount" class="kpi">0</div></div>
+            <div class="stat"><div class="muted">Correct</div><div id="correctCount" class="kpi">0</div></div>
+            <div class="stat"><div class="muted">Incorrect</div><div id="incorrectCount" class="kpi">0</div></div>
+            <div class="stat"><div class="muted">Accuracy</div><div id="correctRate" class="kpi">0.0%</div></div>
+          </div>
+          <div class="row" style="margin-top:.5rem; justify-content:space-between">
+            <button id="resetStats" class="secondary">Reset Stats</button>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Keep ALL your existing JavaScript here (unchanged). If your logic
+           was inline in index.html before, paste it below in place of this comment. -->
+      <script>
+        // ... (Your existing JavaScript code — unchanged)
+        // Note: No changes are needed for tabs. Your app will run as-is inside this panel.
+      </script>
+    </section>
+
+    <!-- INFO: second tab -->
+    <section id="panel-info" class="tab-panel" role="tabpanel" aria-labelledby="tab-info">
+      <div class="info-wrap">
         <div class="info-list">
           <div class="info-item">
             <div class="caps">About</div>
-            <div>A simple arithmetic practice app for 2–4 digit ranges with a drawing pad and “Next” flow.</div>
+            <p>A simple arithmetic practice app with drawing pad and stats.</p>
           </div>
           <div class="info-item">
             <div class="caps">Tips</div>
             <ul style="margin:6px 0 0 18px">
-              <li>Use the digit selector (2/3/4) to change max value (99 / 999 / 9999).</li>
-              <li>“Next” can also clear the drawing area (as you set earlier).</li>
-              <li>Hard refresh on iPhone Safari: tap address bar → pull down to reveal reload → long-press reload → “Reload Without Content Blockers”.</li>
+              <li>Pick a mode (Addition / Subtraction / Both) then answer and press <strong>Check</strong>.</li>
+              <li>Adjust <strong>Pen size</strong> for the scratchpad; use <strong>Clear</strong> to reset it.</li>
+              <li>Use <strong>Next</strong> to move on and track your accuracy.</li>
             </ul>
           </div>
           <div class="info-item">
@@ -119,57 +200,49 @@
           </div>
           <div class="info-item">
             <div class="caps">Version</div>
-            <div>v1.0.0 <span class="muted">— update this when you ship</span></div>
+            <p>v1.0.0 <span class="muted">— update when you ship</span></p>
           </div>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
   </div>
 
-  <!-- Tiny tab script (no frameworks) -->
+  <!-- Tiny tab script (no framework) -->
   <script>
     (function () {
-      const tabs = /** @type {HTMLButtonElement[]} */ (Array.from(document.querySelectorAll('.tab')));
-      const panels = /** @type {HTMLElement[]} */ (Array.from(document.querySelectorAll('.tab-panel')));
+      const tabs = Array.from(document.querySelectorAll('.tabs .tab'));
+      const panels = Array.from(document.querySelectorAll('.tab-panel'));
 
       function activate(id) {
-        tabs.forEach(t => {
-          const on = t.id === ('tab-' + id);
-          t.setAttribute('aria-selected', String(on));
-        });
+        tabs.forEach(t => t.setAttribute('aria-selected', String(t.id === ('tab-' + id))));
         panels.forEach(p => p.classList.toggle('is-active', p.id === ('panel-' + id)));
+        document.dispatchEvent(new CustomEvent('tabchange', { detail: { id } }));
       }
 
-      // Click to switch
+      // Click
       tabs.forEach(t => t.addEventListener('click', () => {
         const id = t.id.replace('tab-', '');
         history.replaceState(null, '', '#' + id);
         activate(id);
-
-        // Optional: dispatch an event your app can listen to if needed
-        document.dispatchEvent(new CustomEvent('tabchange', { detail: { id } }));
       }));
 
-      // Hash routing (#practice / #info)
+      // Hash routing
       function initFromHash() {
-        const hash = (location.hash || '#practice').replace('#', '');
-        const known = ['practice', 'info'];
-        activate(known.includes(hash) ? hash : 'practice');
+        const hash = (location.hash || '#practice').slice(1);
+        activate(hash === 'info' ? 'info' : 'practice');
       }
       window.addEventListener('hashchange', initFromHash);
       initFromHash();
 
-      // Example: if your app needs to pause timers or clear canvas when leaving the Practice tab,
-      // you can listen for tab changes:
-      /*
+      // Optional: if needed, pause timers or clear canvas when leaving Practice
       document.addEventListener('tabchange', (e) => {
         const id = e.detail.id;
         if (id !== 'practice') {
-          // window.pausePracticeTimers?.();
-          // window.clearDrawingPad?.();
+          // If your app exposes helpers, you can call them here, e.g.:
+          // window.pausePracticeTimer?.();
+          // window.clearScratchpadOnTabLeave?.();
         }
       });
-      */
     })();
   </script>
 </body>
