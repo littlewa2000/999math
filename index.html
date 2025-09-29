@@ -4,14 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Math Checker</title>
-
-  <!-- PWA / Apple (from your file) -->
   <link rel="manifest" href="manifest.json" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-
-  <!-- Your existing styles (unchanged) -->
   <style>
     :root {
       --bg: #f5f7fb;
@@ -27,7 +23,6 @@
     }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; color: var(--text); background: var(--bg); }
-
     .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 3fr 2fr; grid-gap: 1rem; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
     h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
@@ -38,7 +33,9 @@
     .mode-buttons button { border: 1px solid var(--border); background: #fff; padding: .35rem .7rem; border-radius: 9999px; cursor: pointer; font-size: .9rem; }
     .mode-buttons button.active { background: var(--brand-weak); border-color: var(--brand); color: var(--brand); }
 
-    .question { font-size: 2rem; letter-spacing: .5px; text-align: center; margin: .75rem 0; }
+    .controls-row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin:.25rem 0 .5rem 0; }
+    .digit-wrap { display:flex; align-items:center; gap:.4rem; }
+    .question { font-size: 2rem; letter-spacing: .5px; text-align: center; margin: .5rem 0 .75rem 0; }
     .row { display: flex; gap: .5rem; align-items: center; margin: .25rem 0; }
     input[type="number"] { width: 120px; padding: .5rem .6rem; font-size: 1rem; border-radius: 8px; border: 1px solid var(--border); }
     button.primary { background: var(--brand); color: #fff; border: none; padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
@@ -63,178 +60,436 @@
     .stat .kpi { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
 
     @media (max-width: 820px) { .container { grid-template-columns: 1fr; } }
-
-    /* --- Minimal tabs styling (isolated so it won't affect your app) --- */
-    .tabs {
-      position: sticky; top: 0; z-index: 10;
-      display: flex; gap: 8px; align-items: center;
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      padding: .5rem 1rem;
-    }
-    .tabs .tab {
-      appearance: none;
-      border: 1px solid var(--border);
-      background: var(--card);
-      color: var(--text);
-      padding: .45rem .9rem;
-      border-radius: 10px 10px 0 0;
-      cursor: pointer;
-      font-weight: 600;
-      letter-spacing: .2px;
-    }
-    .tabs .tab[aria-selected="true"] {
-      border-bottom-color: var(--bg);
-      box-shadow: 0 2px 10px rgba(0,0,0,.04);
-    }
-    .panels { padding: 0; }
-    .tab-panel { display: none; }
-    .tab-panel.is-active { display: block; }
-
-    /* Info tab blocks */
-    .info-wrap { max-width: 1000px; margin: 1rem auto; padding: 0 1rem; }
-    .info-list { display: grid; gap: 12px; }
-    .info-item { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
-    .caps { text-transform: uppercase; letter-spacing: .12em; font-size: 12px; color: var(--muted); }
-    a { color: var(--brand); text-decoration: none; }
-    a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
+  <div class="container">
+    <main class="card">
+      <h1>Math Checker</h1>
+      <div class="muted">Practice quick mental arithmetic. Choose a mode, answer, and track your stats.</div>
 
-  <!-- Tabs header -->
-  <div class="tabs" role="tablist" aria-label="Pages">
-    <button class="tab" role="tab" id="tab-practice" aria-controls="panel-practice" aria-selected="true">Practice</button>
-    <button class="tab" role="tab" id="tab-info" aria-controls="panel-info" aria-selected="false">Info</button>
-  </div>
-
-  <!-- Panels -->
-  <div class="panels">
-    <!-- PRACTICE TAB: your page EXACTLY as attached -->
-    <section id="panel-practice" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-practice">
-      <div class="container">
-        <main class="card">
-          <h1>Math Checker</h1>
-          <div class="muted">Practice quick mental arithmetic. Choose a mode, answer, and track your stats.</div>
-
-          <!-- MODE BUTTONS -->
-          <div class="mode-buttons" role="group" aria-label="Mode selector">
-            <button id="mode-add" aria-pressed="false">Addition Only</button>
-            <button id="mode-sub" aria-pressed="false">Subtraction Only</button>
-            <button id="mode-both" aria-pressed="true" class="active">Add &amp; Subtract</button>
-          </div>
-
-          <div id="question" class="question">0 + 0</div>
-
-          <div class="row">
-            <label for="answer" class="muted" style="width:70px">Answer</label>
-            <input id="answer" type="number" inputmode="numeric" min="0" max="999" placeholder="0–999" />
-            <button id="checkBtn" class="primary" disabled>Check</button>
-            <button id="nextBtn" class="secondary" disabled>Next</button>
-            <div class="muted" style="margin-left:auto">Time: <span id="timer" class="timer">0s</span></div>
-          </div>
-
-          <div id="result" class="result"></div>
-          <div id="correctValue" class="muted" style="min-height:1rem"></div>
-
-          <!-- Scratchpad: drawing area -->
-          <div class="pad-header">
-            <div class="muted">Working area (draw with mouse or finger)</div>
-            <div class="pad-controls">
-              <div class="size-wrap">
-                <span class="muted">Pen size</span>
-                <input id="sizeInput" type="range" min="1" max="20" step="1" value="3" />
-                <span id="sizeValue" class="muted">3</span>
-              </div>
-              <button id="clearPadBtn" class="secondary">Clear</button>
-            </div>
-          </div>
-          <canvas id="scratchpad" aria-label="Drawing area"></canvas>
-
-        </main>
-
-        <aside class="card">
-          <h2 style="margin-top:0">Statistics</h2>
-          <div class="stats-grid">
-            <div class="stat"><div class="muted">Total</div><div id="totalCount" class="kpi">0</div></div>
-            <div class="stat"><div class="muted">Correct</div><div id="correctCount" class="kpi">0</div></div>
-            <div class="stat"><div class="muted">Incorrect</div><div id="incorrectCount" class="kpi">0</div></div>
-            <div class="stat"><div class="muted">Accuracy</div><div id="correctRate" class="kpi">0.0%</div></div>
-          </div>
-          <div class="row" style="margin-top:.5rem; justify-content:space-between">
-            <button id="resetStats" class="secondary">Reset Stats</button>
-          </div>
-        </aside>
+      <!-- MODE BUTTONS -->
+      <div class="mode-buttons" role="group" aria-label="Mode selector">
+        <button id="mode-add" aria-pressed="false">Addition Only</button>
+        <button id="mode-sub" aria-pressed="false">Subtraction Only</button>
+        <button id="mode-both" aria-pressed="true" class="active">Add &amp; Subtract</button>
       </div>
 
-      <!-- Your existing script block (kept exactly; place your real JS here if not already) -->
-      <script>
-        // ... (JavaScript code same as the final version you used before)
-        // NOTE: No changes required for tabs; your app runs inside this panel.
-      </script>
-    </section>
+      <!-- NEW: Digit length selector -->
+      <div class="controls-row">
+        <div class="digit-wrap">
+          <label for="digitSelect" class="muted">Digits:</label>
+          <select id="digitSelect">
+            <option value="2">2 (0–99)</option>
+            <option value="3" selected>3 (0–999)</option>
+            <option value="4">4 (0–9999)</option>
+          </select>
+          <span id="digitRangeLabel" class="muted">Range: 0–999</span>
+        </div>
+        <div class="muted" style="margin-left:auto">Time: <span id="timer" class="timer">0.0s</span></div>
+      </div>
 
-    <!-- INFO TAB: second page -->
-    <section id="panel-info" class="tab-panel" role="tabpanel" aria-labelledby="tab-info">
-      <div class="info-wrap">
-        <div class="info-list">
-          <div class="info-item">
-            <div class="caps">About</div>
-            <p>A simple arithmetic practice app with drawing pad and stats.</p>
+      <div id="question" class="question">0 + 0</div>
+
+      <div class="row">
+        <label for="answer" class="muted" style="width:70px">Answer</label>
+        <input id="answer" type="number" inputmode="numeric" min="0" max="999" placeholder="0–999" />
+        <button id="checkBtn" class="primary" disabled>Check</button>
+        <button id="nextBtn" class="secondary" disabled>Next</button>
+      </div>
+
+      <div id="result" class="result"></div>
+      <div id="correctValue" class="muted" style="min-height:1rem"></div>
+
+      <!-- Scratchpad: drawing area -->
+      <div class="pad-header">
+        <div class="muted">Working area (draw with mouse or finger)</div>
+        <div class="pad-controls">
+          <div class="size-wrap">
+            <span class="muted">Pen size</span>
+            <input id="sizeInput" type="range" min="1" max="20" step="1" value="3" />
+            <span id="sizeValue" class="muted">3</span>
           </div>
-          <div class="info-item">
-            <div class="caps">Tips</div>
-            <ul style="margin:6px 0 0 18px">
-              <li>Pick a mode (Addition / Subtraction / Both) then press <strong>Check</strong>.</li>
-              <li>Adjust <strong>Pen size</strong> for the scratchpad; use <strong>Clear</strong> to reset it.</li>
-              <li>Use <strong>Next</strong> to move on and track your accuracy.</li>
-            </ul>
-          </div>
-          <div class="info-item">
-            <div class="caps">Links</div>
-            <ul style="margin:6px 0 0 18px">
-              <li><a href="https://littlewa2000.github.io/999math/" target="_blank" rel="noopener">Live page</a></li>
-              <li><a href="#" onclick="alert('Add your privacy policy URL here'); return false;">Privacy Policy</a></li>
-              <li><a href="#" onclick="alert('Add your support email/page'); return false;">Support</a></li>
-            </ul>
-          </div>
-          <div class="info-item">
-            <div class="caps">Version</div>
-            <p>v1.0.0 <span class="muted">— update when you ship</span></p>
-          </div>
+          <button id="clearPadBtn" class="secondary">Clear</button>
         </div>
       </div>
-    </section>
+      <canvas id="scratchpad" aria-label="Drawing area"></canvas>
+
+    </main>
+
+    <aside class="card">
+      <h2 style="margin-top:0">Statistics</h2>
+      <div class="stats-grid">
+        <div class="stat"><div class="muted">Total</div><div id="totalCount" class="kpi">0</div></div>
+        <div class="stat"><div class="muted">Correct</div><div id="correctCount" class="kpi">0</div></div>
+        <div class="stat"><div class="muted">Incorrect</div><div id="incorrectCount" class="kpi">0</div></div>
+        <div class="stat"><div class="muted">Accuracy</div><div id="correctRate" class="kpi">0.0%</div></div>
+      </div>
+      <div class="row" style="margin-top:.5rem; justify-content:space-between">
+        <button id="resetStats" class="secondary">Reset Stats</button>
+      </div>
+    </aside>
   </div>
 
-  <!-- Tiny tab script (no framework) -->
   <script>
-    (function () {
-      const tabs = Array.from(document.querySelectorAll('.tabs .tab'));
-      const panels = Array.from(document.querySelectorAll('.tab-panel'));
+    // ---------------------------
+    // Storage keys & utilities
+    // ---------------------------
+    const STORAGE = {
+      digitCount: "math999_digitCount",
+      mode: "math999_mode",
+      stats: "math999_stats",
+    };
 
-      function activate(id) {
-        tabs.forEach(t => t.setAttribute('aria-selected', String(t.id === ('tab-' + id))));
-        panels.forEach(p => p.classList.toggle('is-active', p.id === ('panel-' + id)));
-        // Optional event for your app if needed:
-        document.dispatchEvent(new CustomEvent('tabchange', { detail: { id } }));
+    const Modes = Object.freeze({
+      ADD: "add",
+      SUB: "sub",
+      BOTH: "both",
+    });
+
+    function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+    function randIntInclusive(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+    // ---------------------------
+    // Digit length state
+    // ---------------------------
+    function getStoredDigits() {
+      const d = parseInt(localStorage.getItem(STORAGE.digitCount), 10);
+      return [2,3,4].includes(d) ? d : 3;
+    }
+    let digitCount = getStoredDigits();
+    function currentMaxNumber() { return Math.pow(10, digitCount) - 1; }
+
+    function updateDigitUI() {
+      const sel = document.getElementById("digitSelect");
+      const label = document.getElementById("digitRangeLabel");
+      const answer = document.getElementById("answer");
+      const maxN = currentMaxNumber();
+      if (sel) sel.value = String(digitCount);
+      if (label) label.textContent = `Range: 0–${maxN}`;
+      if (answer) {
+        answer.max = String(maxN);
+        answer.placeholder = `0–${maxN}`;
+        answer.value = "";
+      }
+    }
+
+    // ---------------------------
+    // Mode state
+    // ---------------------------
+    function getStoredMode() {
+      const m = localStorage.getItem(STORAGE.mode);
+      return [Modes.ADD, Modes.SUB, Modes.BOTH].includes(m) ? m : Modes.BOTH;
+    }
+    let mode = getStoredMode();
+
+    function updateModeUI() {
+      const btnAdd = document.getElementById("mode-add");
+      const btnSub = document.getElementById("mode-sub");
+      const btnBoth = document.getElementById("mode-both");
+      const map = {
+        [Modes.ADD]: btnAdd,
+        [Modes.SUB]: btnSub,
+        [Modes.BOTH]: btnBoth
+      };
+      [btnAdd,btnSub,btnBoth].forEach(b => {
+        if (!b) return;
+        b.classList.remove("active");
+        b.setAttribute("aria-pressed","false");
+      });
+      const active = map[mode];
+      if (active) {
+        active.classList.add("active");
+        active.setAttribute("aria-pressed","true");
+      }
+    }
+
+    // ---------------------------
+    // Stats
+    // ---------------------------
+    const defaultStats = { total: 0, correct: 0, incorrect: 0 };
+    function loadStats() {
+      try {
+        const raw = localStorage.getItem(STORAGE.stats);
+        if (!raw) return { ...defaultStats };
+        const obj = JSON.parse(raw);
+        return { ...defaultStats, ...obj };
+      } catch { return { ...defaultStats }; }
+    }
+    function saveStats() { localStorage.setItem(STORAGE.stats, JSON.stringify(stats)); }
+    let stats = loadStats();
+
+    function renderStats() {
+      const { total, correct, incorrect } = stats;
+      const rate = total ? ((correct / total) * 100).toFixed(1) : "0.0";
+      document.getElementById("totalCount").textContent = String(total);
+      document.getElementById("correctCount").textContent = String(correct);
+      document.getElementById("incorrectCount").textContent = String(incorrect);
+      document.getElementById("correctRate").textContent = `${rate}%`;
+    }
+
+    // ---------------------------
+    // Question generation
+    // ---------------------------
+    let current = { a: 0, b: 0, op: "+", answer: 0 };
+    const qEl = document.getElementById("question");
+    const answerEl = document.getElementById("answer");
+    const resultEl = document.getElementById("result");
+    const correctValEl = document.getElementById("correctValue");
+    const checkBtn = document.getElementById("checkBtn");
+    const nextBtn = document.getElementById("nextBtn");
+
+    function generateOperands() {
+      const maxN = currentMaxNumber();
+      let a = randIntInclusive(0, maxN);
+      let b = randIntInclusive(0, maxN);
+      if (mode === Modes.SUB || (mode === Modes.BOTH && Math.random() < 0.5)) {
+        // subtraction: keep non-negative result by ensuring a >= b
+        if (b > a) [a, b] = [b, a];
+        return { a, b, op: "−", answer: a - b };
+      } else {
+        return { a, b, op: "+", answer: a + b };
+      }
+    }
+
+    function renderQuestion() {
+      qEl.textContent = `${current.a} ${current.op} ${current.b}`;
+    }
+
+    // ---------------------------
+    // Timer
+    // ---------------------------
+    const timerEl = document.getElementById("timer");
+    let tStart = 0;
+    let tHandle = null;
+    function formatSeconds(ms) {
+      return (ms / 1000).toFixed(1) + "s";
+    }
+    function startTimer() {
+      stopTimer();
+      tStart = performance.now();
+      tHandle = setInterval(() => {
+        const now = performance.now();
+        timerEl.textContent = formatSeconds(now - tStart);
+      }, 100);
+    }
+    function stopTimer() {
+      if (tHandle) clearInterval(tHandle);
+      tHandle = null;
+    }
+
+    // ---------------------------
+    // Scratchpad
+    // ---------------------------
+    const canvas = document.getElementById("scratchpad");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const sizeInput = document.getElementById("sizeInput");
+    const sizeValue = document.getElementById("sizeValue");
+    const clearPadBtn = document.getElementById("clearPadBtn");
+
+    function resizeCanvasToCSS() {
+      const { width, height } = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.scale(dpr, dpr);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+    }
+
+    let drawing = false;
+    let last = null;
+
+    function getPoint(e) {
+      if (e.touches && e.touches[0]) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: e.touches[0].clientX - rect.left,
+          y: e.touches[0].clientY - rect.top
+        };
+      } else {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+      }
+    }
+
+    function setStrokeWidth(w) {
+      ctx.lineWidth = clamp(w, 1, 20);
+      sizeValue.textContent = String(ctx.lineWidth);
+    }
+
+    function clearDrawingArea() {
+      ctx.save();
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.restore();
+    }
+
+    // ---------------------------
+    // Flow
+    // ---------------------------
+    function resetUIForNewQuestion() {
+      resultEl.textContent = "";
+      resultEl.classList.remove("ok","bad");
+      correctValEl.textContent = "";
+      answerEl.value = "";
+      checkBtn.disabled = false;
+      nextBtn.disabled = true;
+      answerEl.removeAttribute("disabled");
+      answerEl.focus();
+    }
+
+    function generateQuestion() {
+      current = generateOperands();
+      renderQuestion();
+      resetUIForNewQuestion();
+      clearDrawingArea();
+      startTimer();
+    }
+
+    function checkAnswer() {
+      const val = parseInt(answerEl.value, 10);
+      const correct = (val === current.answer);
+      stopTimer();
+      stats.total += 1;
+      if (correct) {
+        stats.correct += 1;
+        resultEl.textContent = "Correct!";
+        resultEl.classList.add("ok");
+        resultEl.classList.remove("bad");
+        correctValEl.textContent = "";
+      } else {
+        stats.incorrect += 1;
+        resultEl.textContent = "Try again";
+        resultEl.classList.add("bad");
+        resultEl.classList.remove("ok");
+        correctValEl.textContent = `Correct answer: ${current.answer}`;
+      }
+      renderStats();
+      saveStats();
+      checkBtn.disabled = true;
+      nextBtn.disabled = false;
+      answerEl.setAttribute("disabled","true");
+    }
+
+    function handleNext() {
+      generateQuestion();
+    }
+
+    // ---------------------------
+    // Init & Events
+    // ---------------------------
+    function initDigitSelector() {
+      updateDigitUI();
+      const sel = document.getElementById("digitSelect");
+      sel.addEventListener("change", () => {
+        digitCount = parseInt(sel.value, 10);
+        localStorage.setItem(STORAGE.digitCount, String(digitCount));
+        updateDigitUI();
+        generateQuestion();
+      });
+    }
+
+    function initModes() {
+      const btnAdd = document.getElementById("mode-add");
+      const btnSub = document.getElementById("mode-sub");
+      const btnBoth = document.getElementById("mode-both");
+
+      function setMode(newMode) {
+        mode = newMode;
+        localStorage.setItem(STORAGE.mode, newMode);
+        updateModeUI();
+        generateQuestion();
       }
 
-      // Click
-      tabs.forEach(t => t.addEventListener('click', () => {
-        const id = t.id.replace('tab-', '');
-        history.replaceState(null, '', '#' + id);
-        activate(id);
-      }));
+      btnAdd.addEventListener("click", () => setMode(Modes.ADD));
+      btnSub.addEventListener("click", () => setMode(Modes.SUB));
+      btnBoth.addEventListener("click", () => setMode(Modes.BOTH));
+      updateModeUI();
+    }
 
-      // Hash routing
-      function initFromHash() {
-        const hash = (location.hash || '#practice').slice(1);
-        activate(hash === 'info' ? 'info' : 'practice');
+    function initAnswerFlow() {
+      checkBtn.addEventListener("click", checkAnswer);
+      nextBtn.addEventListener("click", handleNext);
+      answerEl.addEventListener("input", () => {
+        // enable Check only if there's some input
+        checkBtn.disabled = (answerEl.value.trim() === "");
+      });
+      // Enter to Check/Next
+      answerEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          if (!checkBtn.disabled) checkBtn.click();
+          else if (!nextBtn.disabled) nextBtn.click();
+        }
+      });
+    }
+
+    function initStats() {
+      renderStats();
+      document.getElementById("resetStats").addEventListener("click", () => {
+        stats = { ...defaultStats };
+        saveStats();
+        renderStats();
+      });
+    }
+
+    function initPad() {
+      resizeCanvasToCSS();
+      window.addEventListener("resize", () => {
+        // keep content cleared on resize for simplicity
+        resizeCanvasToCSS();
+        clearDrawingArea();
+      });
+      setStrokeWidth(parseInt(sizeInput.value, 10) || 3);
+      sizeInput.addEventListener("input", () => setStrokeWidth(parseInt(sizeInput.value, 10)));
+
+      const start = (e) => { drawing = true; last = getPoint(e); e.preventDefault(); };
+      const move = (e) => {
+        if (!drawing) return;
+        const p = getPoint(e);
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        last = p;
+        e.preventDefault();
+      };
+      const end = (e) => { drawing = false; last = null; e.preventDefault(); };
+
+      canvas.addEventListener("mousedown", start);
+      canvas.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", end);
+
+      canvas.addEventListener("touchstart", start, { passive:false });
+      canvas.addEventListener("touchmove", move, { passive:false });
+      canvas.addEventListener("touchend", end, { passive:false });
+      canvas.addEventListener("touchcancel", end, { passive:false });
+
+      clearPadBtn.addEventListener("click", clearDrawingArea);
+    }
+
+    // Optional: read ?digits=2|3|4
+    (function readDigitsFromURL() {
+      const p = new URLSearchParams(window.location.search);
+      const d = parseInt(p.get("digits"), 10);
+      if ([2,3,4].includes(d)) {
+        digitCount = d;
+        localStorage.setItem(STORAGE.digitCount, String(digitCount));
       }
-      window.addEventListener('hashchange', initFromHash);
-      initFromHash();
     })();
+
+    // Boot
+    document.addEventListener("DOMContentLoaded", () => {
+      initDigitSelector();
+      initModes();
+      initAnswerFlow();
+      initStats();
+      initPad();
+      generateQuestion();
+    });
   </script>
 </body>
 </html>
