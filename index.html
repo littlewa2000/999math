@@ -24,25 +24,23 @@
     * { box-sizing: border-box; }
     body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; color: var(--text); background: var(--bg); }
 
-    /* Default (original) grid */
-    .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 3fr 2fr; grid-gap: 1rem; }
+    /* Default grid */
+    .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 1fr; grid-gap: 1rem; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-    h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+    h1, h2 { margin: 0 0 0.5rem 0; }
     .muted { color: var(--muted); }
 
-    /* Tabs layout overrides (single column within tabs) */
-    .container.tabs-layout { display: block; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+    /* Tabs */
     .tabs { max-width: 1000px; margin: 1rem auto 0.25rem auto; padding: 0 1rem; display: flex; gap: 8px; border-bottom: 1px solid var(--border); }
     .tab { flex: 1; padding: 10px 12px; cursor: pointer; border: none; background: var(--brand-weak); border-radius: 10px 10px 0 0; font-weight: 600; }
     .tab.active { background: var(--card); }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* Mode Buttons */
+    /* Controls */
     .mode-buttons { display: flex; gap: .5rem; margin: .25rem 0 .75rem 0; flex-wrap: wrap; }
     .mode-buttons button { border: 1px solid var(--border); background: #fff; padding: .35rem .7rem; border-radius: 9999px; cursor: pointer; font-size: .9rem; }
     .mode-buttons button.active { background: var(--brand-weak); border-color: var(--brand); color: var(--brand); }
-
     .controls-row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin:.25rem 0 .5rem 0; }
     .digit-wrap { display:flex; align-items:center; gap:.4rem; }
     .question { font-size: 2rem; letter-spacing: .5px; text-align: center; margin: .5rem 0 .75rem 0; }
@@ -55,43 +53,41 @@
     .result { min-height: 1.5rem; font-weight: 600; margin-top: .25rem; }
     .ok { color: var(--ok); }
     .bad { color: var(--bad); }
-
     .timer { font-variant-numeric: tabular-nums; }
 
-    /* Scratchpad */
+    /* Draw tab */
     .pad-header { display:flex; align-items:center; justify-content:space-between; margin-top:.5rem; gap:.75rem; flex-wrap:wrap; }
     .pad-controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
-    #scratchpad { width:100%; height:240px; background:#fff; border:1px solid var(--border); border-radius:12px; display:block; touch-action:none; user-select:none; -webkit-user-select:none; cursor: crosshair; }
+    #scratchpad { width:100%; height:65vh; background:#fff; border:1px solid var(--border); border-radius:12px; display:block; touch-action:none; user-select:none; -webkit-user-select:none; cursor: crosshair; }
     .size-wrap { display:flex; align-items:center; gap:.4rem; }
-    .size-wrap input[type=range] { width: 140px; }
+    .size-wrap input[type=range] { width: 160px; }
 
+    /* Stats */
     .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
     .stat { border: 1px solid var(--border); border-radius: 10px; padding: .5rem; text-align: center; background: #fff; }
     .stat .kpi { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
-
-    @media (max-width: 820px) { .container { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
-  <!-- Tabs header -->
-  <div class="tabs">
-    <button class="tab active" data-tab="practice">Practice</button>
-    <button class="tab" data-tab="stats">Statistics</button>
+  <!-- Tabs header: Practice | Draw | Statistics -->
+  <div class="tabs" role="tablist" aria-label="Pages">
+    <button class="tab active" data-tab="practice" role="tab" aria-selected="true">Practice</button>
+    <button class="tab" data-tab="draw" role="tab" aria-selected="false">Draw</button>
+    <button class="tab" data-tab="stats" role="tab" aria-selected="false">Statistics</button>
   </div>
 
-  <!-- Tabs container -->
-  <div class="container tabs-layout">
-    <!-- Practice tab: all math features -->
-    <div id="practice" class="tab-content active">
+  <div class="container">
+    <!-- Practice tab (no drawing area here) -->
+    <div id="practice" class="tab-content active" role="tabpanel" aria-labelledby="Practice">
       <main class="card">
         <h1>Math Checker</h1>
         <div class="muted">Practice quick mental arithmetic. Choose a mode, answer, and track your stats.</div>
 
         <!-- MODE BUTTONS -->
         <div class="mode-buttons" role="group" aria-label="Mode selector">
-          <button id="mode-add" aria-pressed="false">Addition Only</button>
-          <button id="mode-sub" aria-pressed="false">Subtraction Only</button>
-          <button id="mode-both" aria-pressed="true" class="active">Add &amp; Subtract</button>
+          <button id="mode-add" aria-pressed="false" type="button">Addition Only</button>
+          <button id="mode-sub" aria-pressed="false" type="button">Subtraction Only</button>
+          <button id="mode-both" aria-pressed="true" class="active" type="button">Add &amp; Subtract</button>
         </div>
 
         <!-- Digit length selector -->
@@ -105,39 +101,44 @@
             </select>
             <span id="digitRangeLabel" class="muted">Range: 0–999</span>
           </div>
-          <div class="muted" style="margin-left:auto">Time: <span id="timer" class="timer">0.0s</span></div>
+          <div class="muted" style="margin-left:auto">Time: <span id="timer" class="timer" aria-live="polite">0.0s</span></div>
         </div>
 
-        <div id="question" class="question">0 + 0</div>
+        <div id="question" class="question" aria-live="polite">0 + 0</div>
 
         <div class="row">
           <label for="answer" class="muted" style="width:70px">Answer</label>
           <input id="answer" type="number" inputmode="numeric" min="0" max="999" placeholder="0–999" />
-          <button id="checkBtn" class="primary" disabled>Check</button>
-          <button id="nextBtn" class="secondary" disabled>Next</button>
+          <button id="checkBtn" class="primary" type="button" disabled>Check</button>
+          <button id="nextBtn" class="secondary" type="button" disabled>Next</button>
         </div>
 
-        <div id="result" class="result"></div>
-        <div id="correctValue" class="muted" style="min-height:1rem"></div>
-
-        <!-- Scratchpad -->
-        <div class="pad-header">
-          <div class="muted">Working area (draw with mouse or finger)</div>
-          <div class="pad-controls">
-            <div class="size-wrap">
-              <span class="muted">Pen size</span>
-              <input id="sizeInput" type="range" min="1" max="20" step="1" value="3" />
-              <span id="sizeValue" class="muted">3</span>
-            </div>
-            <button id="clearPadBtn" class="secondary">Clear</button>
-          </div>
-        </div>
-        <canvas id="scratchpad" aria-label="Drawing area"></canvas>
+        <div id="result" class="result" aria-live="polite"></div>
+        <div id="correctValue" class="muted" style="min-height:1rem" aria-live="polite"></div>
       </main>
     </div>
 
-    <!-- Statistics tab: only stats -->
-    <div id="stats" class="tab-content">
+    <!-- Draw tab (moved & enlarged drawing area) -->
+    <div id="draw" class="tab-content" role="tabpanel" aria-labelledby="Draw">
+      <section class="card">
+        <h2 style="margin-top:0">Drawing Pad</h2>
+        <div class="muted">Use your mouse or finger to draw. Great for working out problems.</div>
+        <div class="pad-header">
+          <div class="pad-controls">
+            <div class="size-wrap">
+              <span class="muted">Pen size</span>
+              <input id="sizeInput" type="range" min="1" max="20" step="1" value="10" />
+              <span id="sizeValue" class="muted">10</span>
+            </div>
+            <button id="clearPadBtn" class="secondary" type="button">Clear</button>
+          </div>
+        </div>
+        <canvas id="scratchpad" aria-label="Drawing area"></canvas>
+      </section>
+    </div>
+
+    <!-- Statistics tab -->
+    <div id="stats" class="tab-content" role="tabpanel" aria-labelledby="Statistics">
       <aside class="card">
         <h2 style="margin-top:0">Statistics</h2>
         <div class="stats-grid">
@@ -147,7 +148,7 @@
           <div class="stat"><div class="muted">Accuracy</div><div id="correctRate" class="kpi">0.0%</div></div>
         </div>
         <div class="row" style="margin-top:.5rem; justify-content:space-between">
-          <button id="resetStats" class="secondary">Reset Stats</button>
+          <button id="resetStats" class="secondary" type="button">Reset Stats</button>
         </div>
       </aside>
     </div>
@@ -185,15 +186,9 @@
     function updateDigitUI() {
       const sel = document.getElementById("digitSelect");
       const label = document.getElementById("digitRangeLabel");
-      const answer = document.getElementById("answer");
       const maxN = currentMaxNumber();
       if (sel) sel.value = String(digitCount);
       if (label) label.textContent = `Range: 0–${maxN}`;
-      if (answer) {
-        answer.max = String(maxN);
-        answer.placeholder = `0–${maxN}`;
-        answer.value = "";
-      }
     }
 
     // ---------------------------
@@ -209,21 +204,10 @@
       const btnAdd = document.getElementById("mode-add");
       const btnSub = document.getElementById("mode-sub");
       const btnBoth = document.getElementById("mode-both");
-      const map = {
-        [Modes.ADD]: btnAdd,
-        [Modes.SUB]: btnSub,
-        [Modes.BOTH]: btnBoth
-      };
-      [btnAdd,btnSub,btnBoth].forEach(b => {
-        if (!b) return;
-        b.classList.remove("active");
-        b.setAttribute("aria-pressed","false");
-      });
+      const map = { [Modes.ADD]: btnAdd, [Modes.SUB]: btnSub, [Modes.BOTH]: btnBoth };
+      [btnAdd,btnSub,btnBoth].forEach(b => { if (!b) return; b.classList.remove("active"); b.setAttribute("aria-pressed","false"); });
       const active = map[mode];
-      if (active) {
-        active.classList.add("active");
-        active.setAttribute("aria-pressed","true");
-      }
+      if (active) { active.classList.add("active"); active.setAttribute("aria-pressed","true"); }
     }
 
     // ---------------------------
@@ -266,39 +250,35 @@
       let a = randIntInclusive(0, maxN);
       let b = randIntInclusive(0, maxN);
       if (mode === Modes.SUB || (mode === Modes.BOTH && Math.random() < 0.5)) {
-        if (b > a) [a, b] = [b, a]; // keep non-negative subtraction
+        if (b > a) [a, b] = [b, a]; // non-negative subtraction
         return { a, b, op: "−", answer: a - b };
       } else {
         return { a, b, op: "+", answer: a + b };
       }
     }
 
-    function renderQuestion() {
-      qEl.textContent = `${current.a} ${current.op} ${current.b}`;
+    function renderQuestion() { qEl.textContent = `${current.a} ${current.op} ${current.b}`; }
+
+    function updateAnswerConstraints() {
+      const maxN = currentMaxNumber();
+      const isAdd = current.op === "+";
+      const maxAnswer = isAdd ? (maxN * 2) : maxN; // e.g., 999 + 999 = 1998
+      answerEl.min = "0";
+      answerEl.max = String(maxAnswer);
+      answerEl.placeholder = `0–${maxAnswer}`;
     }
 
     // ---------------------------
     // Timer
     // ---------------------------
     const timerEl = document.getElementById("timer");
-    let tStart = 0;
-    let tHandle = null;
+    let tStart = 0; let tHandle = null;
     function formatSeconds(ms) { return (ms / 1000).toFixed(1) + "s"; }
-    function startTimer() {
-      stopTimer();
-      tStart = performance.now();
-      tHandle = setInterval(() => {
-        const now = performance.now();
-        timerEl.textContent = formatSeconds(now - tStart);
-      }, 100);
-    }
-    function stopTimer() {
-      if (tHandle) clearInterval(tHandle);
-      tHandle = null;
-    }
+    function startTimer() { stopTimer(); tStart = performance.now(); tHandle = setInterval(() => { const now = performance.now(); timerEl.textContent = formatSeconds(now - tStart); }, 100); }
+    function stopTimer() { if (tHandle) clearInterval(tHandle); tHandle = null; }
 
     // ---------------------------
-    // Scratchpad
+    // Scratchpad (Draw tab)
     // ---------------------------
     const canvas = document.getElementById("scratchpad");
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -311,54 +291,35 @@
       const dpr = window.devicePixelRatio || 1;
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
-      ctx.setTransform(1,0,0,1,0,0);        // reset before scaling
+      ctx.setTransform(1,0,0,1,0,0);
       ctx.scale(dpr, dpr);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
     }
 
-    let drawing = false;
-    let last = null;
-
+    let drawing = false; let last = null;
     function getPoint(e) {
       const rect = canvas.getBoundingClientRect();
-      if (e.touches && e.touches[0]) {
-        return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
-      }
+      if (e.touches && e.touches[0]) return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
       return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
-
-    function setStrokeWidth(w) {
-      ctx.lineWidth = clamp(w, 1, 20);
-      sizeValue.textContent = String(ctx.lineWidth);
-    }
-
-    function clearDrawingArea() {
-      ctx.save();
-      ctx.setTransform(1,0,0,1,0,0);
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.restore();
-    }
+    function setStrokeWidth(w) { ctx.lineWidth = clamp(w, 1, 20); sizeValue.textContent = String(ctx.lineWidth); }
+    function clearDrawingArea() { ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height); ctx.restore(); }
 
     // ---------------------------
     // Flow
     // ---------------------------
     function resetUIForNewQuestion() {
-      resultEl.textContent = "";
-      resultEl.classList.remove("ok","bad");
-      correctValEl.textContent = "";
-      answerEl.value = "";
-      checkBtn.disabled = false;
-      nextBtn.disabled = true;
-      answerEl.removeAttribute("disabled");
-      answerEl.focus();
+      resultEl.textContent = ""; resultEl.classList.remove("ok","bad");
+      correctValEl.textContent = ""; answerEl.value = "";
+      checkBtn.disabled = true; nextBtn.disabled = true;
+      answerEl.removeAttribute("disabled"); answerEl.focus();
     }
 
     function generateQuestion() {
       current = generateOperands();
       renderQuestion();
+      updateAnswerConstraints();
       resetUIForNewQuestion();
-      clearDrawingArea();
       startTimer();
     }
 
@@ -367,24 +328,10 @@
       const correct = (val === current.answer);
       stopTimer();
       stats.total += 1;
-      if (correct) {
-        stats.correct += 1;
-        resultEl.textContent = "Correct!";
-        resultEl.classList.add("ok");
-        resultEl.classList.remove("bad");
-        correctValEl.textContent = "";
-      } else {
-        stats.incorrect += 1;
-        resultEl.textContent = "Try again";
-        resultEl.classList.add("bad");
-        resultEl.classList.remove("ok");
-        correctValEl.textContent = `Correct answer: ${current.answer}`;
-      }
-      renderStats();
-      saveStats();
-      checkBtn.disabled = true;
-      nextBtn.disabled = false;
-      answerEl.setAttribute("disabled","true");
+      if (correct) { stats.correct += 1; resultEl.textContent = "Correct!"; resultEl.classList.add("ok"); resultEl.classList.remove("bad"); correctValEl.textContent = ""; }
+      else { stats.incorrect += 1; resultEl.textContent = "Try again"; resultEl.classList.add("bad"); resultEl.classList.remove("ok"); correctValEl.textContent = `Correct answer: ${current.answer}`; }
+      renderStats(); saveStats();
+      checkBtn.disabled = true; nextBtn.disabled = false; answerEl.setAttribute("disabled","true");
     }
 
     function handleNext() { generateQuestion(); }
@@ -395,26 +342,14 @@
     function initDigitSelector() {
       updateDigitUI();
       const sel = document.getElementById("digitSelect");
-      sel.addEventListener("change", () => {
-        digitCount = parseInt(sel.value, 10);
-        localStorage.setItem(STORAGE.digitCount, String(digitCount));
-        updateDigitUI();
-        generateQuestion();
-      });
+      sel.addEventListener("change", () => { digitCount = parseInt(sel.value, 10); localStorage.setItem(STORAGE.digitCount, String(digitCount)); updateDigitUI(); generateQuestion(); });
     }
 
     function initModes() {
       const btnAdd = document.getElementById("mode-add");
       const btnSub = document.getElementById("mode-sub");
       const btnBoth = document.getElementById("mode-both");
-
-      function setMode(newMode) {
-        mode = newMode;
-        localStorage.setItem(STORAGE.mode, newMode);
-        updateModeUI();
-        generateQuestion();
-      }
-
+      function setMode(newMode) { mode = newMode; localStorage.setItem(STORAGE.mode, newMode); updateModeUI(); generateQuestion(); }
       btnAdd.addEventListener("click", () => setMode(Modes.ADD));
       btnSub.addEventListener("click", () => setMode(Modes.SUB));
       btnBoth.addEventListener("click", () => setMode(Modes.BOTH));
@@ -426,53 +361,35 @@
       nextBtn.addEventListener("click", handleNext);
       answerEl.addEventListener("input", () => { checkBtn.disabled = (answerEl.value.trim() === ""); });
       answerEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          if (!checkBtn.disabled) checkBtn.click();
-          else if (!nextBtn.disabled) nextBtn.click();
-        }
+        if (e.key === "Enter") { if (!checkBtn.disabled) checkBtn.click(); else if (!nextBtn.disabled) nextBtn.click(); }
       });
     }
 
     function initStats() {
       renderStats();
-      document.getElementById("resetStats").addEventListener("click", () => {
-        stats = { ...defaultStats };
-        saveStats();
-        renderStats();
-      });
+      document.getElementById("resetStats").addEventListener("click", () => { stats = { ...defaultStats }; saveStats(); renderStats(); });
     }
 
     function initPad() {
-      resizeCanvasToCSS();
-      window.addEventListener("resize", () => {
-        resizeCanvasToCSS();
-        clearDrawingArea();
-      });
-      setStrokeWidth(parseInt(sizeInput.value, 10) || 3);
+      // Only initialize if draw tab elements exist
+      if (!canvas) return;
+      const ensureSized = () => { resizeCanvasToCSS(); };
+      ensureSized();
+      window.addEventListener("resize", ensureSized);
+      setStrokeWidth(parseInt(sizeInput.value, 10) || 10);
       sizeInput.addEventListener("input", () => setStrokeWidth(parseInt(sizeInput.value, 10)));
 
       const start = (e) => { drawing = true; last = getPoint(e); e.preventDefault(); };
-      const move = (e) => {
-        if (!drawing) return;
-        const p = getPoint(e);
-        ctx.beginPath();
-        ctx.moveTo(last.x, last.y);
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-        last = p;
-        e.preventDefault();
-      };
+      const move = (e) => { if (!drawing) return; const p = getPoint(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; e.preventDefault(); };
       const end = (e) => { drawing = false; last = null; e.preventDefault(); };
 
       canvas.addEventListener("mousedown", start);
       canvas.addEventListener("mousemove", move);
       window.addEventListener("mouseup", end);
-
       canvas.addEventListener("touchstart", start, { passive:false });
       canvas.addEventListener("touchmove", move, { passive:false });
       canvas.addEventListener("touchend", end, { passive:false });
       canvas.addEventListener("touchcancel", end, { passive:false });
-
       clearPadBtn.addEventListener("click", clearDrawingArea);
     }
 
@@ -480,27 +397,20 @@
     (function readDigitsFromURL() {
       const p = new URLSearchParams(window.location.search);
       const d = parseInt(p.get("digits"), 10);
-      if ([2,3,4].includes(d)) {
-        digitCount = d;
-        localStorage.setItem(STORAGE.digitCount, String(digitCount));
-      }
+      if ([2,3,4].includes(d)) { digitCount = d; localStorage.setItem(STORAGE.digitCount, String(digitCount)); }
     })();
 
-    // --- Tabs switching ---
+    // Tabs switching
     (function(){
       var tabs = document.querySelectorAll('.tab');
       var panes = document.querySelectorAll('.tab-content');
       function activate(id) {
-        tabs.forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===id); });
+        tabs.forEach(function(b){ var isActive = b.getAttribute('data-tab')===id; b.classList.toggle('active', isActive); b.setAttribute('aria-selected', String(isActive)); });
         panes.forEach(function(p){ p.classList.toggle('active', p.id===id); });
-        if (id === 'practice' && typeof resizeCanvasToCSS === 'function') {
-          setTimeout(function(){ resizeCanvasToCSS(); }, 50);
-        }
+        if (id === 'draw' && typeof resizeCanvasToCSS === 'function') { setTimeout(function(){ resizeCanvasToCSS(); }, 50); }
       }
-      tabs.forEach(function(btn){
-        btn.addEventListener('click', function(){ activate(btn.getAttribute('data-tab')); });
-      });
-      activate('practice'); // default
+      tabs.forEach(function(btn){ btn.addEventListener('click', function(){ activate(btn.getAttribute('data-tab')); }); });
+      activate('practice');
     })();
 
     // Boot
