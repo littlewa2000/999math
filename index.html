@@ -24,28 +24,28 @@
     * { box-sizing: border-box; }
     body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; color: var(--text); background: var(--bg); }
 
-    /* Default grid */
-    .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 1fr; grid-gap: 1rem; }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-    h1, h2 { margin: 0 0 0.5rem 0; }
+    /* Layout */
+    .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; display: grid; grid-template-columns: 1fr; gap: 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    h1, h2 { margin: 0 0 .5rem 0; }
     .muted { color: var(--muted); }
 
     /* Tabs */
-    .tabs { max-width: 1000px; margin: 1rem auto 0.25rem auto; padding: 0 1rem; display: flex; gap: 8px; border-bottom: 1px solid var(--border); }
+    .tabs { max-width: 1000px; margin: 1rem auto .25rem; padding: 0 1rem; display: flex; gap: 8px; border-bottom: 1px solid var(--border); }
     .tab { flex: 1; padding: 10px 12px; cursor: pointer; border: none; background: var(--brand-weak); border-radius: 10px 10px 0 0; font-weight: 600; }
     .tab.active { background: var(--card); }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
     /* Controls */
-    .mode-buttons { display: flex; gap: .5rem; margin: .25rem 0 .75rem 0; flex-wrap: wrap; }
+    .mode-buttons { display: flex; gap: .5rem; margin: .25rem 0 .75rem; flex-wrap: wrap; }
     .mode-buttons button { border: 1px solid var(--border); background: #fff; padding: .35rem .7rem; border-radius: 9999px; cursor: pointer; font-size: .9rem; }
     .mode-buttons button.active { background: var(--brand-weak); border-color: var(--brand); color: var(--brand); }
-    .controls-row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; margin:.25rem 0 .5rem 0; }
+    .controls-row { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap; margin:.25rem 0 .5rem; }
     .digit-wrap { display:flex; align-items:center; gap:.4rem; }
-    .question { font-size: 2rem; letter-spacing: .5px; text-align: center; margin: .5rem 0 .75rem 0; }
+    .question { font-size: 2rem; letter-spacing: .5px; text-align: center; margin: .5rem 0 .75rem; }
     .row { display: flex; gap: .5rem; align-items: center; margin: .25rem 0; }
-    input[type="number"] { width: 120px; padding: .5rem .6rem; font-size: 1rem; border-radius: 8px; border: 1px solid var(--border); }
+    input[type="number"] { width: 140px; padding: .5rem .6rem; font-size: 1rem; border-radius: 8px; border: 1px solid var(--border); }
     button.primary { background: var(--brand); color: #fff; border: none; padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
     button.secondary { background: #fff; color: var(--text); border: 1px solid var(--border); padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
     button:disabled { opacity: .5; cursor: not-allowed; }
@@ -77,7 +77,7 @@
   </div>
 
   <div class="container">
-    <!-- Practice tab (no drawing area here) -->
+    <!-- Practice tab -->
     <div id="practice" class="tab-content active" role="tabpanel" aria-labelledby="Practice">
       <main class="card">
         <h1>Math Checker</h1>
@@ -92,17 +92,30 @@
           <button id="mode-all" aria-pressed="true" class="active" type="button">ALL</button>
         </div>
 
-        <!-- Digit length selector -->
+        <!-- Digit selectors -->
         <div class="controls-row">
           <div class="digit-wrap">
-            <label for="digitSelect" class="muted">Digits:</label>
+            <label for="digitSelect" class="muted">Multiplicand digits:</label>
             <select id="digitSelect">
+              <option value="1">1 (0–9)</option>
               <option value="2">2 (0–99)</option>
               <option value="3" selected>3 (0–999)</option>
               <option value="4">4 (0–9999)</option>
             </select>
             <span id="digitRangeLabel" class="muted">Range: 0–999</span>
           </div>
+
+          <div class="digit-wrap">
+            <label for="multiplierDigitSelect" class="muted">Multiplier digits:</label>
+            <select id="multiplierDigitSelect">
+              <option value="1" selected>1 (0–9)</option>
+              <option value="2">2 (0–99)</option>
+              <option value="3">3 (0–999)</option>
+              <option value="4">4 (0–9999)</option>
+            </select>
+            <span id="multiplierRangeLabel" class="muted">Range: 0–9</span>
+          </div>
+
           <div class="muted" style="margin-left:auto">Time: <span id="timer" class="timer" aria-live="polite">0.0s</span></div>
         </div>
 
@@ -120,7 +133,7 @@
       </main>
     </div>
 
-    <!-- Draw tab (moved & enlarged drawing area) -->
+    <!-- Draw tab -->
     <div id="draw" class="tab-content" role="tabpanel" aria-labelledby="Draw">
       <section class="card">
         <h2 style="margin-top:0">Drawing Pad</h2>
@@ -158,10 +171,11 @@
 
   <script>
     // ---------------------------
-    // Storage keys & utilities
+    // Storage & constants
     // ---------------------------
     const STORAGE = {
-      digitCount: "math999_digitCount",
+      digitCount: "math999_digitCount",                 // multiplicand digits
+      multiplierDigitCount: "math999_multiplierDigitCount", // multiplier digits
       mode: "math999_mode",
       stats: "math999_stats",
     };
@@ -178,21 +192,34 @@
     function randIntInclusive(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
     // ---------------------------
-    // Digit length state
+    // Digit state (independent selectors)
     // ---------------------------
     function getStoredDigits() {
       const d = parseInt(localStorage.getItem(STORAGE.digitCount), 10);
-      return [2,3,4].includes(d) ? d : 3;
+      return [1,2,3,4].includes(d) ? d : 3; // default multiplicand = 3 digits
     }
+    function getStoredMultiplierDigits() {
+      const d = parseInt(localStorage.getItem(STORAGE.multiplierDigitCount), 10);
+      return [1,2,3,4].includes(d) ? d : 1; // default multiplier = 1 digit
+    }
+
     let digitCount = getStoredDigits();
+    let multiplierDigitCount = getStoredMultiplierDigits();
+
     function currentMaxNumber() { return Math.pow(10, digitCount) - 1; }
+    function currentMaxMultiplierNumber() { return Math.pow(10, multiplierDigitCount) - 1; }
 
     function updateDigitUI() {
       const sel = document.getElementById("digitSelect");
       const label = document.getElementById("digitRangeLabel");
+      const msel = document.getElementById("multiplierDigitSelect");
+      const mlabel = document.getElementById("multiplierRangeLabel");
       const maxN = currentMaxNumber();
+      const maxM = currentMaxMultiplierNumber();
       if (sel) sel.value = String(digitCount);
       if (label) label.textContent = `Range: 0–${maxN}`;
+      if (msel) msel.value = String(multiplierDigitCount);
+      if (mlabel) mlabel.textContent = `Range: 0–${maxM}`;
     }
 
     // ---------------------------
@@ -211,11 +238,7 @@
       const btnBoth = document.getElementById("mode-both");
       const btnAll = document.getElementById("mode-all");
       const map = { [Modes.ADD]: btnAdd, [Modes.SUB]: btnSub, [Modes.MUL]: btnMul, [Modes.BOTH]: btnBoth, [Modes.ALL]: btnAll };
-      [btnAdd,btnSub,btnMul,btnBoth,btnAll].forEach(b => { if (!b) return; b.classList.remove("active"); b.setAttribute("aria-pressed","false"); });
-      const active = map[mode];
-      if (active) { active.classList.add("active"); active.setAttribute("aria-pressed","true"); }
-    };
-      [btnAdd,btnSub,btnMul,btnBoth].forEach(b => { if (!b) return; b.classList.remove("active"); b.setAttribute("aria-pressed","false"); });
+      [btnAdd,btnSub,btnMul,btnBoth,btnAll].forEach(b => { if (b){ b.classList.remove("active"); b.setAttribute("aria-pressed","false"); } });
       const active = map[mode];
       if (active) { active.classList.add("active"); active.setAttribute("aria-pressed","true"); }
     }
@@ -257,20 +280,31 @@
 
     function generateOperands() {
       const maxN = currentMaxNumber();
-      let a = randIntInclusive(0, maxN);
-      let b = randIntInclusive(0, maxN);
+      const maxM = currentMaxMultiplierNumber();
+      let a = 0, b = 0;
 
       if (mode === Modes.MUL) {
+        a = randIntInclusive(0, maxN);   // multiplicand
+        b = randIntInclusive(0, maxM);   // multiplier (independent)
         return { a, b, op: "×", answer: a * b };
       }
+
       if (mode === Modes.SUB) {
+        a = randIntInclusive(0, maxN);
+        b = randIntInclusive(0, maxN);
         if (b > a) [a, b] = [b, a];
         return { a, b, op: "−", answer: a - b };
       }
+
       if (mode === Modes.ADD) {
+        a = randIntInclusive(0, maxN);
+        b = randIntInclusive(0, maxN);
         return { a, b, op: "+", answer: a + b };
       }
+
       if (mode === Modes.BOTH) {
+        a = randIntInclusive(0, maxN);
+        b = randIntInclusive(0, maxN);
         if (Math.random() < 0.5) {
           if (b > a) [a, b] = [b, a];
           return { a, b, op: "−", answer: a - b };
@@ -278,33 +312,31 @@
           return { a, b, op: "+", answer: a + b };
         }
       }
+
       // Modes.ALL -> random among +, −, ×
       const r = Math.random();
       if (r < 1/3) {
+        a = randIntInclusive(0, maxN); b = randIntInclusive(0, maxN);
         return { a, b, op: "+", answer: a + b };
       } else if (r < 2/3) {
+        a = randIntInclusive(0, maxN); b = randIntInclusive(0, maxN);
         if (b > a) [a, b] = [b, a];
         return { a, b, op: "−", answer: a - b };
       } else {
+        a = randIntInclusive(0, maxN); b = randIntInclusive(0, maxM);
         return { a, b, op: "×", answer: a * b };
       }
-    };
-      }
-      if (mode === Modes.SUB || (mode === Modes.BOTH && Math.random() < 0.5)) {
-        if (b > a) [a, b] = [b, a]; // non-negative subtraction
-        return { a, b, op: "−", answer: a - b };
-      }
-      return { a, b, op: "+", answer: a + b };
     }
 
     function renderQuestion() { qEl.textContent = `${current.a} ${current.op} ${current.b}`; }
 
     function updateAnswerConstraints() {
       const maxN = currentMaxNumber();
+      const maxM = currentMaxMultiplierNumber();
       let maxAnswer;
-      if (current.op === "+") maxAnswer = maxN * 2;        // e.g., 999+999
-      else if (current.op === "−") maxAnswer = maxN;         // a-b ≤ maxN
-      else if (current.op === "×") maxAnswer = maxN * maxN;  // e.g., 999*999
+      if (current.op === "+") maxAnswer = maxN * 2;            // e.g., 99 + 99 = 198 OK
+      else if (current.op === "−") maxAnswer = maxN;           // non-negative by design
+      else if (current.op === "×") maxAnswer = maxN * maxM;    // product upper bound
       else maxAnswer = maxN;
       answerEl.min = "0";
       answerEl.max = String(maxAnswer);
@@ -315,13 +347,17 @@
     // Timer
     // ---------------------------
     const timerEl = document.getElementById("timer");
-    let tStart = 0; let tHandle = null;
+    let tStart = 0, tHandle = null;
     function formatSeconds(ms) { return (ms / 1000).toFixed(1) + "s"; }
-    function startTimer() { stopTimer(); tStart = performance.now(); tHandle = setInterval(() => { const now = performance.now(); timerEl.textContent = formatSeconds(now - tStart); }, 100); }
+    function startTimer() {
+      stopTimer();
+      tStart = performance.now();
+      tHandle = setInterval(() => { timerEl.textContent = formatSeconds(performance.now() - tStart); }, 100);
+    }
     function stopTimer() { if (tHandle) clearInterval(tHandle); tHandle = null; }
 
     // ---------------------------
-    // Scratchpad (Draw tab)
+    // Draw pad
     // ---------------------------
     const canvas = document.getElementById("scratchpad");
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -336,10 +372,11 @@
       canvas.height = Math.floor(height * dpr);
       ctx.setTransform(1,0,0,1,0,0);
       ctx.scale(dpr, dpr);
-      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
     }
 
-    let drawing = false; let last = null;
+    let drawing = false, last = null;
     function getPoint(e) {
       const rect = canvas.getBoundingClientRect();
       if (e.touches && e.touches[0]) return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
@@ -352,10 +389,14 @@
     // Flow
     // ---------------------------
     function resetUIForNewQuestion() {
-      resultEl.textContent = ""; resultEl.classList.remove("ok","bad");
-      correctValEl.textContent = ""; answerEl.value = "";
-      checkBtn.disabled = true; nextBtn.disabled = true;
-      answerEl.removeAttribute("disabled"); answerEl.focus();
+      resultEl.textContent = "";
+      resultEl.classList.remove("ok","bad");
+      correctValEl.textContent = "";
+      answerEl.value = "";
+      checkBtn.disabled = true;
+      nextBtn.disabled = true;
+      answerEl.removeAttribute("disabled");
+      answerEl.focus();
     }
 
     function generateQuestion() {
@@ -371,21 +412,47 @@
       const correct = (val === current.answer);
       stopTimer();
       stats.total += 1;
-      if (correct) { stats.correct += 1; resultEl.textContent = "Correct!"; resultEl.classList.add("ok"); resultEl.classList.remove("bad"); correctValEl.textContent = ""; }
-      else { stats.incorrect += 1; resultEl.textContent = "Try again"; resultEl.classList.add("bad"); resultEl.classList.remove("ok"); correctValEl.textContent = `Correct answer: ${current.answer}`; }
-      renderStats(); saveStats();
-      checkBtn.disabled = true; nextBtn.disabled = false; answerEl.setAttribute("disabled","true");
+      if (correct) {
+        stats.correct += 1;
+        resultEl.textContent = "Correct!";
+        resultEl.classList.add("ok");
+        resultEl.classList.remove("bad");
+        correctValEl.textContent = "";
+      } else {
+        stats.incorrect += 1;
+        resultEl.textContent = "Try again";
+        resultEl.classList.add("bad");
+        resultEl.classList.remove("ok");
+        correctValEl.textContent = `Correct answer: ${current.answer}`;
+      }
+      renderStats();
+      saveStats();
+      checkBtn.disabled = true;
+      nextBtn.disabled = false;
+      answerEl.setAttribute("disabled","true");
     }
 
     function handleNext() { generateQuestion(); }
 
     // ---------------------------
-    // Init & Events
+    // Init & events
     // ---------------------------
     function initDigitSelector() {
       updateDigitUI();
       const sel = document.getElementById("digitSelect");
-      sel.addEventListener("change", () => { digitCount = parseInt(sel.value, 10); localStorage.setItem(STORAGE.digitCount, String(digitCount)); updateDigitUI(); generateQuestion(); });
+      const msel = document.getElementById("multiplierDigitSelect");
+      sel.addEventListener("change", () => {
+        digitCount = parseInt(sel.value, 10);
+        localStorage.setItem(STORAGE.digitCount, String(digitCount));
+        updateDigitUI();
+        generateQuestion();
+      });
+      msel.addEventListener("change", () => {
+        multiplierDigitCount = parseInt(msel.value, 10);
+        localStorage.setItem(STORAGE.multiplierDigitCount, String(multiplierDigitCount));
+        updateDigitUI();
+        generateQuestion();
+      });
     }
 
     function initModes() {
@@ -394,18 +461,17 @@
       const btnMul = document.getElementById("mode-mul");
       const btnBoth = document.getElementById("mode-both");
       const btnAll = document.getElementById("mode-all");
-      function setMode(newMode) { mode = newMode; localStorage.setItem(STORAGE.mode, newMode); updateModeUI(); generateQuestion(); }
+      function setMode(newMode) {
+        mode = newMode;
+        localStorage.setItem(STORAGE.mode, newMode);
+        updateModeUI();
+        generateQuestion();
+      }
       btnAdd.addEventListener("click", () => setMode(Modes.ADD));
       btnSub.addEventListener("click", () => setMode(Modes.SUB));
       btnMul.addEventListener("click", () => setMode(Modes.MUL));
       btnBoth.addEventListener("click", () => setMode(Modes.BOTH));
       btnAll.addEventListener("click", () => setMode(Modes.ALL));
-      updateModeUI();
-    }
-      btnAdd.addEventListener("click", () => setMode(Modes.ADD));
-      btnSub.addEventListener("click", () => setMode(Modes.SUB));
-      btnMul.addEventListener("click", () => setMode(Modes.MUL));
-      btnBoth.addEventListener("click", () => setMode(Modes.BOTH));
       updateModeUI();
     }
 
@@ -414,13 +480,20 @@
       nextBtn.addEventListener("click", handleNext);
       answerEl.addEventListener("input", () => { checkBtn.disabled = (answerEl.value.trim() === ""); });
       answerEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") { if (!checkBtn.disabled) checkBtn.click(); else if (!nextBtn.disabled) nextBtn.click(); }
+        if (e.key === "Enter") {
+          if (!checkBtn.disabled) checkBtn.click();
+          else if (!nextBtn.disabled) nextBtn.click();
+        }
       });
     }
 
     function initStats() {
       renderStats();
-      document.getElementById("resetStats").addEventListener("click", () => { stats = { ...defaultStats }; saveStats(); renderStats(); });
+      document.getElementById("resetStats").addEventListener("click", () => {
+        stats = { ...defaultStats };
+        saveStats();
+        renderStats();
+      });
     }
 
     function initPad() {
@@ -432,7 +505,16 @@
       sizeInput.addEventListener("input", () => setStrokeWidth(parseInt(sizeInput.value, 10)));
 
       const start = (e) => { drawing = true; last = getPoint(e); e.preventDefault(); };
-      const move = (e) => { if (!drawing) return; const p = getPoint(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; e.preventDefault(); };
+      const move = (e) => {
+        if (!drawing) return;
+        const p = getPoint(e);
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        last = p;
+        e.preventDefault();
+      };
       const end = (e) => { drawing = false; last = null; e.preventDefault(); };
 
       canvas.addEventListener("mousedown", start);
@@ -445,23 +527,37 @@
       clearPadBtn.addEventListener("click", clearDrawingArea);
     }
 
-    // Optional: read ?digits=2|3|4
+    // Optional: read ?digits=..&multiplierDigits=..
     (function readDigitsFromURL() {
       const p = new URLSearchParams(window.location.search);
       const d = parseInt(p.get("digits"), 10);
-      if ([2,3,4].includes(d)) { digitCount = d; localStorage.setItem(STORAGE.digitCount, String(digitCount)); }
+      if ([1,2,3,4].includes(d)) {
+        digitCount = d;
+        localStorage.setItem(STORAGE.digitCount, String(digitCount));
+      }
+      const m = parseInt(p.get("multiplierDigits"), 10);
+      if ([1,2,3,4].includes(m)) {
+        multiplierDigitCount = m;
+        localStorage.setItem(STORAGE.multiplierDigitCount, String(multiplierDigitCount));
+      }
     })();
 
     // Tabs switching
     (function(){
-      var tabs = document.querySelectorAll('.tab');
-      var panes = document.querySelectorAll('.tab-content');
+      const tabs = document.querySelectorAll('.tab');
+      const panes = document.querySelectorAll('.tab-content');
       function activate(id) {
-        tabs.forEach(function(b){ var isActive = b.getAttribute('data-tab')===id; b.classList.toggle('active', isActive); b.setAttribute('aria-selected', String(isActive)); });
-        panes.forEach(function(p){ p.classList.toggle('active', p.id===id); });
-        if (id === 'draw' && typeof resizeCanvasToCSS === 'function') { setTimeout(function(){ resizeCanvasToCSS(); }, 50); }
+        tabs.forEach((b) => {
+          const active = b.getAttribute('data-tab') === id;
+          b.classList.toggle('active', active);
+          b.setAttribute('aria-selected', String(active));
+        });
+        panes.forEach((p) => p.classList.toggle('active', p.id === id));
+        if (id === 'draw' && typeof resizeCanvasToCSS === 'function') {
+          setTimeout(resizeCanvasToCSS, 50);
+        }
       }
-      tabs.forEach(function(btn){ btn.addEventListener('click', function(){ activate(btn.getAttribute('data-tab')); }); });
+      tabs.forEach((btn) => btn.addEventListener('click', () => activate(btn.getAttribute('data-tab'))));
       activate('practice');
     })();
 
