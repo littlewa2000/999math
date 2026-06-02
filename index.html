@@ -45,6 +45,8 @@
     .digit-wrap { display:flex; align-items:center; gap:.4rem; }
     .question { font-size: 2rem; letter-spacing: .5px; text-align: center; margin: .5rem 0 .75rem; }
     .row { display: flex; gap: .5rem; align-items: center; margin: .25rem 0; }
+    .div-answer-row { display: none; }
+    .div-answer-row.active { display: flex; }
     input[type="number"] { width: 140px; padding: .5rem .6rem; font-size: 1rem; border-radius: 8px; border: 1px solid var(--border); }
     button.primary { background: var(--brand); color: #fff; border: none; padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
     button.secondary { background: #fff; color: var(--text); border: 1px solid var(--border); padding: .5rem .8rem; border-radius: 8px; cursor: pointer; font-size: .9rem; }
@@ -88,13 +90,14 @@
           <button id="mode-add" aria-pressed="false" type="button">Add</button>
           <button id="mode-sub" aria-pressed="false" type="button">SUB</button>
           <button id="mode-mul" aria-pressed="false" type="button">MULTI</button>
+          <button id="mode-div" aria-pressed="false" type="button">DIVIDE</button>
           <button id="mode-both" aria-pressed="false" type="button">Add &amp; Sub</button>
           <button id="mode-all" aria-pressed="true" class="active" type="button">ALL</button>
         </div>
 
         <!-- Digit selectors -->
         <div class="controls-row">
-          <div class="digit-wrap">
+          <div id="multiplicandWrap" class="digit-wrap">
             <label for="digitSelect" class="muted">Multiplicand digits:</label>
             <select id="digitSelect">
               <option value="1">1 (0–9)</option>
@@ -105,7 +108,7 @@
             <span id="digitRangeLabel" class="muted">Range: 0–999</span>
           </div>
 
-          <div class="digit-wrap">
+          <div id="multiplierWrap" class="digit-wrap">
             <label for="multiplierDigitSelect" class="muted">Multiplier digits:</label>
             <select id="multiplierDigitSelect">
               <option value="1" selected>1 (0–9)</option>
@@ -116,14 +119,43 @@
             <span id="multiplierRangeLabel" class="muted">Range: 0–9</span>
           </div>
 
+          <div id="dividendWrap" class="digit-wrap">
+            <label for="dividendDigitSelect" class="muted">Dividend digits:</label>
+            <select id="dividendDigitSelect">
+              <option value="1">1 (1–9)</option>
+              <option value="2">2 (1–99)</option>
+              <option value="3" selected>3 (1–999)</option>
+            </select>
+            <span id="dividendRangeLabel" class="muted">Range: 1–999</span>
+          </div>
+
+          <div id="divisorWrap" class="digit-wrap">
+            <label for="divisorDigitSelect" class="muted">Divisor digits:</label>
+            <select id="divisorDigitSelect">
+              <option value="1" selected>1 (1–9)</option>
+              <option value="2">2 (1–99)</option>
+            </select>
+            <span id="divisorRangeLabel" class="muted">Range: 1–9</span>
+          </div>
+
           <div class="muted" style="margin-left:auto">Time: <span id="timer" class="timer" aria-live="polite">0.0s</span></div>
         </div>
 
         <div id="question" class="question" aria-live="polite">0 + 0</div>
 
-        <div class="row">
+        <div id="normalAnswerRow" class="row">
           <label for="answer" class="muted" style="width:70px">Answer</label>
           <input id="answer" type="number" inputmode="numeric" min="0" max="999" placeholder="0–999" />
+        </div>
+
+        <div id="divisionAnswerRow" class="row div-answer-row">
+          <label for="quotientAnswer" class="muted" style="width:70px">Quotient</label>
+          <input id="quotientAnswer" type="number" inputmode="numeric" min="0" placeholder="商數" />
+          <label for="remainderAnswer" class="muted">Remainder</label>
+          <input id="remainderAnswer" type="number" inputmode="numeric" min="0" placeholder="餘數" />
+        </div>
+
+        <div class="row">
           <button id="checkBtn" class="primary" type="button" disabled>Check</button>
           <button id="nextBtn" class="secondary" type="button" disabled>Next</button>
         </div>
@@ -176,6 +208,8 @@
     const STORAGE = {
       digitCount: "math999_digitCount",                 // multiplicand digits
       multiplierDigitCount: "math999_multiplierDigitCount", // multiplier digits
+      dividendDigitCount: "math999_dividendDigitCount", // division numerator/dividend digits
+      divisorDigitCount: "math999_divisorDigitCount",   // division denominator/divisor digits
       mode: "math999_mode",
       stats: "math999_stats",
     };
@@ -184,6 +218,7 @@
       ADD: "add",
       SUB: "sub",
       MUL: "mul",
+      DIV: "div",
       BOTH: "both",
       ALL: "all",
     });
@@ -202,24 +237,46 @@
       const d = parseInt(localStorage.getItem(STORAGE.multiplierDigitCount), 10);
       return [1,2,3,4].includes(d) ? d : 1; // default multiplier = 1 digit
     }
+    function getStoredDividendDigits() {
+      const d = parseInt(localStorage.getItem(STORAGE.dividendDigitCount), 10);
+      return [1,2,3].includes(d) ? d : 3; // default dividend = 3 digits
+    }
+    function getStoredDivisorDigits() {
+      const d = parseInt(localStorage.getItem(STORAGE.divisorDigitCount), 10);
+      return [1,2].includes(d) ? d : 1; // default divisor = 1 digit
+    }
 
     let digitCount = getStoredDigits();
     let multiplierDigitCount = getStoredMultiplierDigits();
+    let dividendDigitCount = getStoredDividendDigits();
+    let divisorDigitCount = getStoredDivisorDigits();
 
     function currentMaxNumber() { return Math.pow(10, digitCount) - 1; }
     function currentMaxMultiplierNumber() { return Math.pow(10, multiplierDigitCount) - 1; }
+    function currentMaxDividendNumber() { return Math.pow(10, dividendDigitCount) - 1; }
+    function currentMaxDivisorNumber() { return Math.pow(10, divisorDigitCount) - 1; }
 
     function updateDigitUI() {
       const sel = document.getElementById("digitSelect");
       const label = document.getElementById("digitRangeLabel");
       const msel = document.getElementById("multiplierDigitSelect");
       const mlabel = document.getElementById("multiplierRangeLabel");
+      const dsel = document.getElementById("dividendDigitSelect");
+      const dlabel = document.getElementById("dividendRangeLabel");
+      const vsel = document.getElementById("divisorDigitSelect");
+      const vlabel = document.getElementById("divisorRangeLabel");
       const maxN = currentMaxNumber();
       const maxM = currentMaxMultiplierNumber();
+      const maxDividend = currentMaxDividendNumber();
+      const maxDivisor = currentMaxDivisorNumber();
       if (sel) sel.value = String(digitCount);
       if (label) label.textContent = `Range: 0–${maxN}`;
       if (msel) msel.value = String(multiplierDigitCount);
       if (mlabel) mlabel.textContent = `Range: 0–${maxM}`;
+      if (dsel) dsel.value = String(dividendDigitCount);
+      if (dlabel) dlabel.textContent = `Range: 1–${maxDividend}`;
+      if (vsel) vsel.value = String(divisorDigitCount);
+      if (vlabel) vlabel.textContent = `Range: 1–${maxDivisor}`;
     }
 
     // ---------------------------
@@ -227,7 +284,7 @@
     // ---------------------------
     function getStoredMode() {
       const m = localStorage.getItem(STORAGE.mode);
-      return [Modes.ADD, Modes.SUB, Modes.MUL, Modes.BOTH, Modes.ALL].includes(m) ? m : Modes.ALL;
+      return [Modes.ADD, Modes.SUB, Modes.MUL, Modes.DIV, Modes.BOTH, Modes.ALL].includes(m) ? m : Modes.ALL;
     }
     let mode = getStoredMode();
 
@@ -235,14 +292,29 @@
       const btnAdd = document.getElementById("mode-add");
       const btnSub = document.getElementById("mode-sub");
       const btnMul = document.getElementById("mode-mul");
+      const btnDiv = document.getElementById("mode-div");
       const btnBoth = document.getElementById("mode-both");
       const btnAll = document.getElementById("mode-all");
-      const map = { [Modes.ADD]: btnAdd, [Modes.SUB]: btnSub, [Modes.MUL]: btnMul, [Modes.BOTH]: btnBoth, [Modes.ALL]: btnAll };
-      [btnAdd,btnSub,btnMul,btnBoth,btnAll].forEach(b => { if (b){ b.classList.remove("active"); b.setAttribute("aria-pressed","false"); } });
+      const map = { [Modes.ADD]: btnAdd, [Modes.SUB]: btnSub, [Modes.MUL]: btnMul, [Modes.DIV]: btnDiv, [Modes.BOTH]: btnBoth, [Modes.ALL]: btnAll };
+      [btnAdd,btnSub,btnMul,btnDiv,btnBoth,btnAll].forEach(b => { if (b){ b.classList.remove("active"); b.setAttribute("aria-pressed","false"); } });
       const active = map[mode];
       if (active) { active.classList.add("active"); active.setAttribute("aria-pressed","true"); }
     }
 
+
+    function updateDigitVisibility() {
+      const multiplicandWrap = document.getElementById("multiplicandWrap");
+      const multiplierWrap = document.getElementById("multiplierWrap");
+      const dividendWrap = document.getElementById("dividendWrap");
+      const divisorWrap = document.getElementById("divisorWrap");
+      const isMultiply = mode === Modes.MUL;
+      const isDivide = mode === Modes.DIV;
+
+      if (multiplicandWrap) multiplicandWrap.style.display = isDivide ? "none" : "flex";
+      if (multiplierWrap) multiplierWrap.style.display = isMultiply ? "flex" : "none";
+      if (dividendWrap) dividendWrap.style.display = isDivide ? "flex" : "none";
+      if (divisorWrap) divisorWrap.style.display = isDivide ? "flex" : "none";
+    }
     // ---------------------------
     // Stats
     // ---------------------------
@@ -270,9 +342,13 @@
     // ---------------------------
     // Question generation
     // ---------------------------
-    let current = { a: 0, b: 0, op: "+", answer: 0 };
+    let current = { a: 0, b: 0, op: "+", answer: 0, quotient: 0, remainder: 0 };
     const qEl = document.getElementById("question");
     const answerEl = document.getElementById("answer");
+    const normalAnswerRow = document.getElementById("normalAnswerRow");
+    const divisionAnswerRow = document.getElementById("divisionAnswerRow");
+    const quotientAnswerEl = document.getElementById("quotientAnswer");
+    const remainderAnswerEl = document.getElementById("remainderAnswer");
     const resultEl = document.getElementById("result");
     const correctValEl = document.getElementById("correctValue");
     const checkBtn = document.getElementById("checkBtn");
@@ -281,12 +357,32 @@
     function generateOperands() {
       const maxN = currentMaxNumber();
       const maxM = currentMaxMultiplierNumber();
+      const maxDividend = currentMaxDividendNumber();
+      const maxDivisor = currentMaxDivisorNumber();
       let a = 0, b = 0;
+
+      function makeDivisionQuestion() {
+        const divisorUpper = Math.min(maxDivisor, maxDividend);
+        b = randIntInclusive(1, divisorUpper);        // denominator/divisor cannot be 0
+        a = randIntInclusive(b, maxDividend);         // numerator/dividend >= denominator/divisor
+        return {
+          a,
+          b,
+          op: "÷",
+          answer: Math.floor(a / b),
+          quotient: Math.floor(a / b),
+          remainder: a % b
+        };
+      }
 
       if (mode === Modes.MUL) {
         a = randIntInclusive(0, maxN);   // multiplicand
         b = randIntInclusive(0, maxM);   // multiplier (independent)
         return { a, b, op: "×", answer: a * b };
+      }
+
+      if (mode === Modes.DIV) {
+        return makeDivisionQuestion();
       }
 
       if (mode === Modes.SUB) {
@@ -313,18 +409,20 @@
         }
       }
 
-      // Modes.ALL -> random among +, −, ×
+      // Modes.ALL -> random among +, −, ×, ÷
       const r = Math.random();
-      if (r < 1/3) {
+      if (r < 0.25) {
         a = randIntInclusive(0, maxN); b = randIntInclusive(0, maxN);
         return { a, b, op: "+", answer: a + b };
-      } else if (r < 2/3) {
+      } else if (r < 0.50) {
         a = randIntInclusive(0, maxN); b = randIntInclusive(0, maxN);
         if (b > a) [a, b] = [b, a];
         return { a, b, op: "−", answer: a - b };
-      } else {
+      } else if (r < 0.75) {
         a = randIntInclusive(0, maxN); b = randIntInclusive(0, maxM);
         return { a, b, op: "×", answer: a * b };
+      } else {
+        return makeDivisionQuestion();
       }
     }
 
@@ -333,11 +431,21 @@
     function updateAnswerConstraints() {
       const maxN = currentMaxNumber();
       const maxM = currentMaxMultiplierNumber();
+      const maxDividend = currentMaxDividendNumber();
+      const maxDivisor = Math.min(currentMaxDivisorNumber(), maxDividend);
       let maxAnswer;
       if (current.op === "+") maxAnswer = maxN * 2;            // e.g., 99 + 99 = 198 OK
       else if (current.op === "−") maxAnswer = maxN;           // non-negative by design
       else if (current.op === "×") maxAnswer = maxN * maxM;    // product upper bound
-      else maxAnswer = maxN;
+      else if (current.op === "÷") {
+        quotientAnswerEl.min = "0";
+        quotientAnswerEl.max = String(maxDividend);
+        quotientAnswerEl.placeholder = "商數";
+        remainderAnswerEl.min = "0";
+        remainderAnswerEl.max = String(Math.max(0, maxDivisor - 1));
+        remainderAnswerEl.placeholder = "餘數";
+        return;
+      } else maxAnswer = maxN;
       answerEl.min = "0";
       answerEl.max = String(maxAnswer);
       answerEl.placeholder = `0–${maxAnswer}`;
@@ -393,10 +501,18 @@
       resultEl.classList.remove("ok","bad");
       correctValEl.textContent = "";
       answerEl.value = "";
+      quotientAnswerEl.value = "";
+      remainderAnswerEl.value = "";
+      const isDivision = current.op === "÷";
+      normalAnswerRow.style.display = isDivision ? "none" : "flex";
+      divisionAnswerRow.classList.toggle("active", isDivision);
       checkBtn.disabled = true;
       nextBtn.disabled = true;
       answerEl.removeAttribute("disabled");
-      answerEl.focus();
+      quotientAnswerEl.removeAttribute("disabled");
+      remainderAnswerEl.removeAttribute("disabled");
+      if (isDivision) quotientAnswerEl.focus();
+      else answerEl.focus();
     }
 
     function generateQuestion() {
@@ -408,8 +524,16 @@
     }
 
     function checkAnswer() {
-      const val = parseInt(answerEl.value, 10);
-      const correct = (val === current.answer);
+      let correct = false;
+      if (current.op === "÷") {
+        const q = parseInt(quotientAnswerEl.value, 10);
+        const r = parseInt(remainderAnswerEl.value, 10);
+        correct = (q === current.quotient && r === current.remainder);
+      } else {
+        const val = parseInt(answerEl.value, 10);
+        correct = (val === current.answer);
+      }
+
       stopTimer();
       stats.total += 1;
       if (correct) {
@@ -423,13 +547,19 @@
         resultEl.textContent = "Try again";
         resultEl.classList.add("bad");
         resultEl.classList.remove("ok");
-        correctValEl.textContent = `Correct answer: ${current.answer}`;
+        if (current.op === "÷") {
+          correctValEl.textContent = `Correct answer: quotient ${current.quotient}, remainder ${current.remainder}`;
+        } else {
+          correctValEl.textContent = `Correct answer: ${current.answer}`;
+        }
       }
       renderStats();
       saveStats();
       checkBtn.disabled = true;
       nextBtn.disabled = false;
       answerEl.setAttribute("disabled","true");
+      quotientAnswerEl.setAttribute("disabled","true");
+      remainderAnswerEl.setAttribute("disabled","true");
     }
 
     function handleNext() { generateQuestion(); }
@@ -441,6 +571,8 @@
       updateDigitUI();
       const sel = document.getElementById("digitSelect");
       const msel = document.getElementById("multiplierDigitSelect");
+      const dsel = document.getElementById("dividendDigitSelect");
+      const vsel = document.getElementById("divisorDigitSelect");
       sel.addEventListener("change", () => {
         digitCount = parseInt(sel.value, 10);
         localStorage.setItem(STORAGE.digitCount, String(digitCount));
@@ -453,37 +585,66 @@
         updateDigitUI();
         generateQuestion();
       });
+      dsel.addEventListener("change", () => {
+        dividendDigitCount = parseInt(dsel.value, 10);
+        localStorage.setItem(STORAGE.dividendDigitCount, String(dividendDigitCount));
+        updateDigitUI();
+        generateQuestion();
+      });
+      vsel.addEventListener("change", () => {
+        divisorDigitCount = parseInt(vsel.value, 10);
+        localStorage.setItem(STORAGE.divisorDigitCount, String(divisorDigitCount));
+        updateDigitUI();
+        generateQuestion();
+      });
     }
 
     function initModes() {
       const btnAdd = document.getElementById("mode-add");
       const btnSub = document.getElementById("mode-sub");
       const btnMul = document.getElementById("mode-mul");
+      const btnDiv = document.getElementById("mode-div");
       const btnBoth = document.getElementById("mode-both");
       const btnAll = document.getElementById("mode-all");
       function setMode(newMode) {
         mode = newMode;
         localStorage.setItem(STORAGE.mode, newMode);
         updateModeUI();
+        updateDigitVisibility();
         generateQuestion();
       }
       btnAdd.addEventListener("click", () => setMode(Modes.ADD));
       btnSub.addEventListener("click", () => setMode(Modes.SUB));
       btnMul.addEventListener("click", () => setMode(Modes.MUL));
+      btnDiv.addEventListener("click", () => setMode(Modes.DIV));
       btnBoth.addEventListener("click", () => setMode(Modes.BOTH));
       btnAll.addEventListener("click", () => setMode(Modes.ALL));
       updateModeUI();
+      updateDigitVisibility();
     }
 
     function initAnswerFlow() {
+      function updateCheckButton() {
+        if (current.op === "÷") {
+          checkBtn.disabled = (quotientAnswerEl.value.trim() === "" || remainderAnswerEl.value.trim() === "");
+        } else {
+          checkBtn.disabled = (answerEl.value.trim() === "");
+        }
+      }
+
       checkBtn.addEventListener("click", checkAnswer);
       nextBtn.addEventListener("click", handleNext);
-      answerEl.addEventListener("input", () => { checkBtn.disabled = (answerEl.value.trim() === ""); });
-      answerEl.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          if (!checkBtn.disabled) checkBtn.click();
-          else if (!nextBtn.disabled) nextBtn.click();
-        }
+      answerEl.addEventListener("input", updateCheckButton);
+      quotientAnswerEl.addEventListener("input", updateCheckButton);
+      remainderAnswerEl.addEventListener("input", updateCheckButton);
+
+      [answerEl, quotientAnswerEl, remainderAnswerEl].forEach((el) => {
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            if (!checkBtn.disabled) checkBtn.click();
+            else if (!nextBtn.disabled) nextBtn.click();
+          }
+        });
       });
     }
 
@@ -540,6 +701,16 @@
         multiplierDigitCount = m;
         localStorage.setItem(STORAGE.multiplierDigitCount, String(multiplierDigitCount));
       }
+      const dividend = parseInt(p.get("dividendDigits"), 10);
+      if ([1,2,3].includes(dividend)) {
+        dividendDigitCount = dividend;
+        localStorage.setItem(STORAGE.dividendDigitCount, String(dividendDigitCount));
+      }
+      const divisor = parseInt(p.get("divisorDigits"), 10);
+      if ([1,2].includes(divisor)) {
+        divisorDigitCount = divisor;
+        localStorage.setItem(STORAGE.divisorDigitCount, String(divisorDigitCount));
+      }
     })();
 
     // Tabs switching
@@ -565,6 +736,7 @@
     document.addEventListener("DOMContentLoaded", () => {
       initDigitSelector();
       initModes();
+      updateDigitVisibility();
       initAnswerFlow();
       initStats();
       initPad();
