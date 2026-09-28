@@ -60,9 +60,18 @@
     /* Draw tab */
     .pad-header { display:flex; align-items:center; justify-content:space-between; margin-top:.5rem; gap:.75rem; flex-wrap:wrap; }
     .pad-controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
-    #scratchpad { width:100%; height:65vh; background:#fff; border:1px solid var(--border); border-radius:12px; display:block; touch-action:none; user-select:none; -webkit-user-select:none; cursor: crosshair; }
+    .pad-viewport { position:relative; width:100%; height:65vh; margin-top:.75rem; overflow:auto; overscroll-behavior:contain; border:1px solid var(--border); border-radius:12px; background:#fff; -webkit-overflow-scrolling:touch; }
+    #scratchpad { display:block; background:#fff; touch-action:none; user-select:none; -webkit-user-select:none; cursor:crosshair; }
     .size-wrap { display:flex; align-items:center; gap:.4rem; }
     .size-wrap input[type=range] { width: 160px; }
+    .pad-nav { position:fixed; right:max(16px, env(safe-area-inset-right)); bottom:max(18px, env(safe-area-inset-bottom)); z-index:1000; display:none; grid-template-columns:48px 48px 48px; grid-template-rows:48px 48px 48px; gap:4px; padding:6px; border-radius:16px; background:rgba(255,255,255,.92); border:1px solid var(--border); box-shadow:0 4px 16px rgba(15,23,42,.18); backdrop-filter:blur(6px); }
+    #draw.active .pad-nav { display:grid; }
+    .pad-nav button { width:48px; height:48px; padding:0; border:1px solid var(--border); border-radius:12px; background:#fff; color:var(--text); font-size:1.35rem; font-weight:700; cursor:pointer; touch-action:manipulation; }
+    .pad-nav .up { grid-column:2; grid-row:1; }
+    .pad-nav .left { grid-column:1; grid-row:2; }
+    .pad-nav .center { grid-column:2; grid-row:2; font-size:.72rem; color:var(--muted); display:flex; align-items:center; justify-content:center; text-align:center; line-height:1.05; }
+    .pad-nav .right { grid-column:3; grid-row:2; }
+    .pad-nav .down { grid-column:2; grid-row:3; }
 
     /* Stats */
     .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
@@ -180,7 +189,16 @@
             <button id="clearPadBtn" class="secondary" type="button">Clear</button>
           </div>
         </div>
-        <canvas id="scratchpad" aria-label="Drawing area"></canvas>
+        <div id="padViewport" class="pad-viewport">
+          <canvas id="scratchpad" aria-label="Expandable drawing area"></canvas>
+        </div>
+        <div class="pad-nav" aria-label="Expand drawing area">
+          <button id="padUpBtn" class="up" type="button" aria-label="Add space above">↑</button>
+          <button id="padLeftBtn" class="left" type="button" aria-label="Add space to the left">←</button>
+          <div id="padPageInfo" class="center">1 × 1</div>
+          <button id="padRightBtn" class="right" type="button" aria-label="Add space to the right">→</button>
+          <button id="padDownBtn" class="down" type="button" aria-label="Add space below">↓</button>
+        </div>
       </section>
     </div>
 
@@ -659,9 +677,6 @@
 
     function initPad() {
       if (!canvas) return;
-      const ensureSized = () => { resizeCanvasToCSS(); };
-      ensureSized();
-      window.addEventListener("resize", ensureSized);
       setStrokeWidth(parseInt(sizeInput.value, 10) || 10);
       sizeInput.addEventListener("input", () => setStrokeWidth(parseInt(sizeInput.value, 10)));
 
@@ -676,7 +691,7 @@
         last = p;
         e.preventDefault();
       };
-      const end = (e) => { drawing = false; last = null; e.preventDefault(); };
+      const end = (e) => { drawing = false; last = null; if (e.cancelable) e.preventDefault(); };
 
       canvas.addEventListener("mousedown", start);
       canvas.addEventListener("mousemove", move);
@@ -686,6 +701,10 @@
       canvas.addEventListener("touchend", end, { passive:false });
       canvas.addEventListener("touchcancel", end, { passive:false });
       clearPadBtn.addEventListener("click", clearDrawingArea);
+      padUpBtn.addEventListener("click", () => expandPad("up"));
+      padDownBtn.addEventListener("click", () => expandPad("down"));
+      padLeftBtn.addEventListener("click", () => expandPad("left"));
+      padRightBtn.addEventListener("click", () => expandPad("right"));
     }
 
     // Optional: read ?digits=..&multiplierDigits=..
@@ -744,4 +763,127 @@
     });
   </script>
 </body>
-</html>
+</html>    // ---------------------------
+    // Draw pad - expandable workspace
+    // ---------------------------
+    const canvas = document.getElementById("scratchpad");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const padViewport = document.getElementById("padViewport");
+    const sizeInput = document.getElementById("sizeInput");
+    const sizeValue = document.getElementById("sizeValue");
+    const clearPadBtn = document.getElementById("clearPadBtn");
+    const padUpBtn = document.getElementById("padUpBtn");
+    const padDownBtn = document.getElementById("padDownBtn");
+    const padLeftBtn = document.getElementById("padLeftBtn");
+    const padRightBtn = document.getElementById("padRightBtn");
+    const padPageInfo = document.getElementById("padPageInfo");
+
+    let padCssWidth = 0;
+    let padCssHeight = 0;
+    let padCols = 1;
+    let padRows = 1;
+    let padReady = false;
+    let drawing = false, last = null;
+
+    function setupCanvasContext() {
+      const dpr = window.devicePixelRatio || 1;
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "#0f172a";
+      ctx.lineWidth = clamp(parseInt(sizeInput.value, 10) || 10, 1, 20);
+    }
+
+    function setCanvasCssSize(width, height) {
+      const dpr = window.devicePixelRatio || 1;
+      padCssWidth = Math.max(1, Math.round(width));
+      padCssHeight = Math.max(1, Math.round(height));
+      canvas.style.width = padCssWidth + "px";
+      canvas.style.height = padCssHeight + "px";
+      canvas.width = Math.round(padCssWidth * dpr);
+      canvas.height = Math.round(padCssHeight * dpr);
+      setupCanvasContext();
+    }
+
+    function initExpandableCanvas() {
+      if (!padViewport || padReady || padViewport.clientWidth < 2) return;
+      setCanvasCssSize(padViewport.clientWidth, padViewport.clientHeight);
+      padCols = 1;
+      padRows = 1;
+      padReady = true;
+      updatePadInfo();
+    }
+
+    // Compatibility hook used when the Draw tab becomes visible.
+    function resizeCanvasToCSS() {
+      if (!padReady) initExpandableCanvas();
+    }
+
+    function snapshotCanvas() {
+      const copy = document.createElement("canvas");
+      copy.width = canvas.width;
+      copy.height = canvas.height;
+      copy.getContext("2d").drawImage(canvas, 0, 0);
+      return copy;
+    }
+
+    function updatePadInfo() {
+      if (padPageInfo) padPageInfo.textContent = padCols + " × " + padRows;
+    }
+
+    function expandPad(direction) {
+      initExpandableCanvas();
+      if (!padReady) return;
+
+      const old = snapshotCanvas();
+      const oldCssW = padCssWidth;
+      const oldCssH = padCssHeight;
+      const pageW = Math.max(1, padViewport.clientWidth);
+      const pageH = Math.max(1, padViewport.clientHeight);
+      const addX = direction === "left" ? pageW : 0;
+      const addY = direction === "up" ? pageH : 0;
+      const newW = oldCssW + ((direction === "left" || direction === "right") ? pageW : 0);
+      const newH = oldCssH + ((direction === "up" || direction === "down") ? pageH : 0);
+
+      setCanvasCssSize(newW, newH);
+      ctx.drawImage(old, addX, addY, oldCssW, oldCssH);
+
+      if (direction === "left" || direction === "right") padCols += 1;
+      else padRows += 1;
+      updatePadInfo();
+
+      requestAnimationFrame(() => {
+        if (direction === "down") {
+          padViewport.scrollTo({ left: padViewport.scrollLeft, top: oldCssH, behavior:"smooth" });
+        } else if (direction === "right") {
+          padViewport.scrollTo({ left: oldCssW, top: padViewport.scrollTop, behavior:"smooth" });
+        } else if (direction === "up") {
+          padViewport.scrollTo({ left: padViewport.scrollLeft, top: pageH, behavior:"auto" });
+          requestAnimationFrame(() => padViewport.scrollTo({ left: padViewport.scrollLeft, top:0, behavior:"smooth" }));
+        } else if (direction === "left") {
+          padViewport.scrollTo({ left: pageW, top: padViewport.scrollTop, behavior:"auto" });
+          requestAnimationFrame(() => padViewport.scrollTo({ left:0, top:padViewport.scrollTop, behavior:"smooth" }));
+        }
+      });
+    }
+
+    function getPoint(e) {
+      const rect = canvas.getBoundingClientRect();
+      const source = (e.touches && e.touches[0]) ? e.touches[0] : e;
+      return { x: source.clientX - rect.left, y: source.clientY - rect.top };
+    }
+
+    function setStrokeWidth(w) {
+      ctx.lineWidth = clamp(w, 1, 20);
+      sizeValue.textContent = String(ctx.lineWidth);
+    }
+
+    function clearDrawingArea() {
+      ctx.save();
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.restore();
+      setupCanvasContext();
+    }
+
+
