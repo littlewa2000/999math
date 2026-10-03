@@ -62,16 +62,13 @@
     .pad-controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .pad-viewport { position:relative; width:100%; height:65vh; margin-top:.75rem; overflow:auto; overscroll-behavior:contain; border:1px solid var(--border); border-radius:12px; background:#fff; -webkit-overflow-scrolling:touch; }
     #scratchpad { display:block; background:#fff; touch-action:none; user-select:none; -webkit-user-select:none; cursor:crosshair; }
+    #scratchpad.pan-mode { cursor:grab; }
+    #scratchpad.pan-mode.panning { cursor:grabbing; }
     .size-wrap { display:flex; align-items:center; gap:.4rem; }
     .size-wrap input[type=range] { width: 160px; }
-    .pad-nav { position:fixed; right:max(16px, env(safe-area-inset-right)); bottom:max(18px, env(safe-area-inset-bottom)); z-index:1000; display:none; grid-template-columns:48px 48px 48px; grid-template-rows:48px 48px 48px; gap:4px; padding:6px; border-radius:16px; background:rgba(255,255,255,.92); border:1px solid var(--border); box-shadow:0 4px 16px rgba(15,23,42,.18); backdrop-filter:blur(6px); }
-    #draw.active .pad-nav { display:grid; }
-    .pad-nav button { width:48px; height:48px; padding:0; border:1px solid var(--border); border-radius:12px; background:#fff; color:var(--text); font-size:1.35rem; font-weight:700; cursor:pointer; touch-action:manipulation; }
-    .pad-nav .up { grid-column:2; grid-row:1; }
-    .pad-nav .left { grid-column:1; grid-row:2; }
-    .pad-nav .center { grid-column:2; grid-row:2; font-size:.72rem; color:var(--muted); display:flex; align-items:center; justify-content:center; text-align:center; line-height:1.05; }
-    .pad-nav .right { grid-column:3; grid-row:2; }
-    .pad-nav .down { grid-column:2; grid-row:3; }
+    .tool-toggle { display:flex; gap:.35rem; }
+    .tool-toggle button.active { background:var(--brand-weak); border-color:var(--brand); color:var(--brand); }
+    .pad-page-info { font-size:.82rem; color:var(--muted); }
 
     /* Stats */
     .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; margin-top: .5rem; }
@@ -186,19 +183,18 @@
               <input id="sizeInput" type="range" min="1" max="20" step="1" value="10" />
               <span id="sizeValue" class="muted">10</span>
             </div>
+            <div class="tool-toggle" role="group" aria-label="Drawing tool">
+              <button id="penToolBtn" class="secondary active" type="button" aria-pressed="true" title="Draw">✏️</button>
+              <button id="panToolBtn" class="secondary" type="button" aria-pressed="false" title="Move canvas">🖐️</button>
+            </div>
+            <span id="padPageInfo" class="pad-page-info">3 × 3</span>
             <button id="clearPadBtn" class="secondary" type="button">Clear</button>
           </div>
         </div>
         <div id="padViewport" class="pad-viewport">
           <canvas id="scratchpad" aria-label="Expandable drawing area"></canvas>
         </div>
-        <div class="pad-nav" aria-label="Expand drawing area">
-          <button id="padUpBtn" class="up" type="button" aria-label="Add space above">↑</button>
-          <button id="padLeftBtn" class="left" type="button" aria-label="Add space to the left">←</button>
-          <div id="padPageInfo" class="center">1 × 1</div>
-          <button id="padRightBtn" class="right" type="button" aria-label="Add space to the right">→</button>
-          <button id="padDownBtn" class="down" type="button" aria-label="Add space below">↓</button>
-        </div>
+
       </section>
     </div>
 
@@ -491,10 +487,8 @@
     const sizeInput = document.getElementById("sizeInput");
     const sizeValue = document.getElementById("sizeValue");
     const clearPadBtn = document.getElementById("clearPadBtn");
-    const padUpBtn = document.getElementById("padUpBtn");
-    const padDownBtn = document.getElementById("padDownBtn");
-    const padLeftBtn = document.getElementById("padLeftBtn");
-    const padRightBtn = document.getElementById("padRightBtn");
+    const penToolBtn = document.getElementById("penToolBtn");
+    const panToolBtn = document.getElementById("panToolBtn");
     const padPageInfo = document.getElementById("padPageInfo");
 
     let padCssWidth = 0;
@@ -503,6 +497,9 @@
     let padRows = 1;
     let padReady = false;
     let drawing = false, last = null;
+    let padTool = "pen";
+    let panning = false;
+    let panStart = null;
 
     function setupCanvasContext() {
       const dpr = window.devicePixelRatio || 1;
@@ -526,11 +523,17 @@
 
     function initExpandableCanvas() {
       if (!padViewport || padReady || padViewport.clientWidth < 2) return;
-      setCanvasCssSize(padViewport.clientWidth, padViewport.clientHeight);
-      padCols = 1;
-      padRows = 1;
+      const pageW = padViewport.clientWidth;
+      const pageH = padViewport.clientHeight;
+      padCols = 3;
+      padRows = 3;
+      setCanvasCssSize(pageW * padCols, pageH * padRows);
       padReady = true;
       updatePadInfo();
+      requestAnimationFrame(() => {
+        padViewport.scrollLeft = pageW;
+        padViewport.scrollTop = pageH;
+      });
     }
 
     // Compatibility hook used when the Draw tab becomes visible.
@@ -780,8 +783,46 @@
       setStrokeWidth(parseInt(sizeInput.value, 10) || 10);
       sizeInput.addEventListener("input", () => setStrokeWidth(parseInt(sizeInput.value, 10)));
 
-      const start = (e) => { drawing = true; last = getPoint(e); e.preventDefault(); };
+      function setPadTool(tool) {
+        padTool = tool;
+        drawing = false;
+        panning = false;
+        last = null;
+        panStart = null;
+        canvas.classList.toggle("pan-mode", tool === "pan");
+        canvas.classList.remove("panning");
+        penToolBtn.classList.toggle("active", tool === "pen");
+        panToolBtn.classList.toggle("active", tool === "pan");
+        penToolBtn.setAttribute("aria-pressed", String(tool === "pen"));
+        panToolBtn.setAttribute("aria-pressed", String(tool === "pan"));
+      }
+
+      function clientPoint(e) {
+        const source = (e.touches && e.touches[0]) ? e.touches[0] : e;
+        return { x: source.clientX, y: source.clientY };
+      }
+
+      const start = (e) => {
+        if (padTool === "pan") {
+          const p = clientPoint(e);
+          panning = true;
+          panStart = { x:p.x, y:p.y, left:padViewport.scrollLeft, top:padViewport.scrollTop };
+          canvas.classList.add("panning");
+        } else {
+          drawing = true;
+          last = getPoint(e);
+        }
+        e.preventDefault();
+      };
       const move = (e) => {
+        if (padTool === "pan") {
+          if (!panning || !panStart) return;
+          const p = clientPoint(e);
+          padViewport.scrollLeft = panStart.left - (p.x - panStart.x);
+          padViewport.scrollTop = panStart.top - (p.y - panStart.y);
+          e.preventDefault();
+          return;
+        }
         if (!drawing) return;
         const p = getPoint(e);
         ctx.beginPath();
@@ -791,7 +832,14 @@
         last = p;
         e.preventDefault();
       };
-      const end = (e) => { drawing = false; last = null; if (e.cancelable) e.preventDefault(); };
+      const end = (e) => {
+        drawing = false;
+        panning = false;
+        last = null;
+        panStart = null;
+        canvas.classList.remove("panning");
+        if (e.cancelable) e.preventDefault();
+      };
 
       canvas.addEventListener("mousedown", start);
       canvas.addEventListener("mousemove", move);
@@ -800,11 +848,10 @@
       canvas.addEventListener("touchmove", move, { passive:false });
       canvas.addEventListener("touchend", end, { passive:false });
       canvas.addEventListener("touchcancel", end, { passive:false });
+      penToolBtn.addEventListener("click", () => setPadTool("pen"));
+      panToolBtn.addEventListener("click", () => setPadTool("pan"));
       clearPadBtn.addEventListener("click", clearDrawingArea);
-      padUpBtn.addEventListener("click", () => expandPad("up"));
-      padDownBtn.addEventListener("click", () => expandPad("down"));
-      padLeftBtn.addEventListener("click", () => expandPad("left"));
-      padRightBtn.addEventListener("click", () => expandPad("right"));
+      setPadTool("pen");
     }
 
     // Optional: read ?digits=..&multiplierDigits=..
