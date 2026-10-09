@@ -785,6 +785,7 @@
         panning = false;
         last = null;
         panStart = null;
+        if (activePointerId !== null) finishGesture({ pointerId: activePointerId });
         canvas.classList.toggle("pan-mode", tool === "pan");
         canvas.classList.remove("panning");
         penToolBtn.classList.toggle("active", tool === "pen");
@@ -793,61 +794,60 @@
         panToolBtn.setAttribute("aria-pressed", String(tool === "pan"));
       }
 
-      function clientPoint(e) {
-        const source = (e.touches && e.touches[0]) ? e.touches[0] : e;
-        return { x: source.clientX, y: source.clientY };
-      }
-
-      const start = (e) => {
-        if (padTool === "pan") {
-          const p = clientPoint(e);
-          panning = true;
-          panStart = { x:p.x, y:p.y, left:padViewport.scrollLeft, top:padViewport.scrollTop };
-          canvas.classList.add("panning");
-        } else {
-          drawing = true;
-          last = getPoint(e);
+      // Pointer Events handle mouse, touch and Apple Pencil consistently.
+      let activePointerId = null;
+      function finishGesture(e) {
+        if (activePointerId === null || (e && e.pointerId !== activePointerId)) return;
+        if (canvas.hasPointerCapture && canvas.hasPointerCapture(activePointerId)) {
+          canvas.releasePointerCapture(activePointerId);
         }
-        e.preventDefault();
-      };
-      const move = (e) => {
-        if (padTool === "pan") {
-          if (!panning || !panStart) return;
-          const p = clientPoint(e);
-          padViewport.scrollLeft = panStart.left - (p.x - panStart.x);
-          padViewport.scrollTop = panStart.top - (p.y - panStart.y);
-          e.preventDefault();
-          return;
-        }
-        if (!drawing) return;
-        const p = getPoint(e);
-        ctx.beginPath();
-        ctx.moveTo(last.x, last.y);
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-        last = p;
-        e.preventDefault();
-      };
-      const end = (e) => {
+        activePointerId = null;
         drawing = false;
         panning = false;
         last = null;
         panStart = null;
         canvas.classList.remove("panning");
-        if (e.cancelable) e.preventDefault();
-      };
+      }
 
-      canvas.addEventListener("mousedown", start);
-      canvas.addEventListener("mousemove", move);
-      window.addEventListener("mouseup", end);
-      padViewport.addEventListener("touchstart", (e) => {
-        if (padTool === "pan") start(e);
-      }, { passive:false });
-      padViewport.addEventListener("touchmove", (e) => {
-        if (padTool === "pan") move(e);
-      }, { passive:false });
-      padViewport.addEventListener("touchend", end, { passive:false });
-      padViewport.addEventListener("touchcancel", end, { passive:false });
+      canvas.addEventListener("pointerdown", (e) => {
+        if (activePointerId !== null || (e.pointerType === "mouse" && e.button !== 0)) return;
+        initExpandableCanvas();
+        activePointerId = e.pointerId;
+        canvas.setPointerCapture(e.pointerId);
+        if (padTool === "pan") {
+          panning = true;
+          panStart = { x:e.clientX, y:e.clientY, left:padViewport.scrollLeft, top:padViewport.scrollTop };
+          canvas.classList.add("panning");
+        } else {
+          drawing = true;
+          last = getPoint(e);
+          // A tap should leave a visible dot, even without pointer movement.
+          ctx.beginPath();
+          ctx.arc(last.x, last.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+          ctx.fillStyle = ctx.strokeStyle;
+          ctx.fill();
+        }
+        e.preventDefault();
+      });
+      canvas.addEventListener("pointermove", (e) => {
+        if (e.pointerId !== activePointerId) return;
+        if (padTool === "pan") {
+          if (!panning || !panStart) return;
+          padViewport.scrollLeft = panStart.left - (e.clientX - panStart.x);
+          padViewport.scrollTop = panStart.top - (e.clientY - panStart.y);
+        } else if (drawing && last) {
+          const p = getPoint(e);
+          ctx.beginPath();
+          ctx.moveTo(last.x, last.y);
+          ctx.lineTo(p.x, p.y);
+          ctx.stroke();
+          last = p;
+        }
+        e.preventDefault();
+      });
+      canvas.addEventListener("pointerup", finishGesture);
+      canvas.addEventListener("pointercancel", finishGesture);
+      canvas.addEventListener("lostpointercapture", finishGesture);
       penToolBtn.addEventListener("click", () => setPadTool("pen"));
       panToolBtn.addEventListener("click", () => setPadTool("pan"));
       clearPadBtn.addEventListener("click", clearDrawingArea);
