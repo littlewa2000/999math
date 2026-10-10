@@ -218,6 +218,15 @@
           <div class="stat"><div class="muted">Incorrect</div><div id="incorrectCount" class="kpi">0</div></div>
           <div class="stat"><div class="muted">Accuracy</div><div id="correctRate" class="kpi">0.0%</div></div>
         </div>
+        <section style="margin-top:1rem;border-top:1px solid var(--border);padding-top:1rem">
+          <h3>今日逐題作答報告</h3>
+          <div id="todaySummary" class="muted" aria-live="polite"></div>
+          <div id="todayDetails" style="white-space:pre-wrap;max-height:320px;overflow:auto;font-size:.9rem;margin:.5rem 0"></div>
+          <label for="reportEmail">收件 Email</label>
+          <input id="reportEmail" type="email" autocomplete="email" placeholder="請輸入收件信箱" style="width:100%;padding:.6rem;margin:.4rem 0;border:1px solid var(--border);border-radius:8px">
+          <button id="emailReportBtn" class="primary" type="button">✉️ 寄送今日學習報告</button>
+          <p class="muted" style="font-size:.8rem">開啟郵件 App 後請確認內容並自行按寄送；資料只儲存在目前裝置。</p>
+        </section>
         <div class="row" style="margin-top:.5rem; justify-content:space-between">
           <button id="resetStats" class="secondary" type="button">Reset Stats</button>
         </div>
@@ -236,6 +245,7 @@
       divisorDigitCount: "math999_divisorDigitCount",   // division denominator/divisor digits
       mode: "math999_mode",
       stats: "math999_stats",
+      history: "math999_dailyHistory",
     };
 
     const Modes = Object.freeze({
@@ -353,6 +363,48 @@
     }
     function saveStats() { localStorage.setItem(STORAGE.stats, JSON.stringify(stats)); }
     let stats = loadStats();
+    function loadHistory() {
+      try { const x = JSON.parse(localStorage.getItem(STORAGE.history) || "[]"); return Array.isArray(x) ? x : []; }
+      catch { return []; }
+    }
+    let history = loadHistory();
+    let activeRecord = null;
+    function localDateKey(date = new Date()) {
+      return [date.getFullYear(), String(date.getMonth()+1).padStart(2,"0"), String(date.getDate()).padStart(2,"0")].join("-");
+    }
+    function persistHistory() {
+      try { localStorage.setItem(STORAGE.history, JSON.stringify(history)); }
+      catch (e) { console.warn("Unable to save question history", e); }
+    }
+    function todayRecords() { return history.filter(r => r.date === localDateKey()); }
+    function correctAnswerText(q) { return q.op === "÷" ? `商 ${q.quotient}，餘 ${q.remainder}` : String(q.answer); }
+    function buildReport() {
+      const records = todayRecords();
+      const solved = records.filter(r => r.attempts.some(a => a.correct));
+      const firstTry = solved.filter(r => r.attempts[0]?.correct).length;
+      const lines = [
+        "999math 每日數學學習報告 — " + localDateKey(),
+        "已作答題目：" + records.length,
+        "已答對：" + solved.length,
+        "一次答對：" + firstTry,
+        "經更正後答對：" + (solved.length-firstTry),
+        "尚未答對：" + (records.length-solved.length),
+        "",
+        "逐題紀錄："
+      ];
+      records.forEach((r,i) => {
+        const corrections = r.attempts.filter(a => !a.correct).length;
+        lines.push(`${i+1}. ${r.a} ${r.op} ${r.b} = ${correctAnswerText(r)}`);
+        r.attempts.forEach((a,j) => lines.push(`   第${j+1}次：${a.value} ${a.correct ? "✓ 正確" : "✗ 錯誤"}（${a.time}）`));
+        lines.push(`   更正次數：${corrections}；${r.attempts.some(a=>a.correct) ? "已答對" : "尚未答對"}`);
+      });
+      return lines.join("\n");
+    }
+    function renderTodayReport() {
+      const records = todayRecords();
+      document.getElementById("todaySummary").textContent = `今日 ${records.length} 題；已答對 ${records.filter(r=>r.attempts.some(a=>a.correct)).length} 題`;
+      document.getElementById("todayDetails").textContent = records.length ? buildReport().split("逐題紀錄：")[1].trim() : "今天尚無作答紀錄。";
+    }
 
     function renderStats() {
       const { total, correct, incorrect } = stats;
@@ -361,6 +413,7 @@
       document.getElementById("correctCount").textContent = String(correct);
       document.getElementById("incorrectCount").textContent = String(incorrect);
       document.getElementById("correctRate").textContent = `${rate}%`;
+      renderTodayReport();
     }
 
     // ---------------------------
@@ -755,6 +808,7 @@
 
     function generateQuestion() {
       current = generateOperands();
+      activeRecord = null;
       renderQuestion();
       updateAnswerConstraints();
       resetUIForNewQuestion();
@@ -772,6 +826,15 @@
         correct = (val === current.answer);
       }
 
+      if (!activeRecord) {
+        activeRecord = { date: localDateKey(), a: current.a, b: current.b, op: current.op,
+          answer: current.answer, quotient: current.quotient, remainder: current.remainder, attempts: [] };
+        history.push(activeRecord);
+      }
+      activeRecord.attempts.push({value: current.op === "÷" ?
+        `商 ${quotientAnswerEl.value}，餘 ${remainderAnswerEl.value}` : answerEl.value,
+        correct, time: new Date().toLocaleTimeString()});
+      persistHistory();
       stopTimer();
       stats.total += 1;
       if (correct) {
@@ -795,9 +858,17 @@
       saveStats();
       checkBtn.disabled = true;
       nextBtn.disabled = false;
-      answerEl.setAttribute("disabled","true");
-      quotientAnswerEl.setAttribute("disabled","true");
-      remainderAnswerEl.setAttribute("disabled","true");
+      if (correct) {
+        answerEl.setAttribute("disabled","true");
+        quotientAnswerEl.setAttribute("disabled","true");
+        remainderAnswerEl.setAttribute("disabled","true");
+      } else {
+        // Permit another submission of the same question; record every correction.
+        answerEl.removeAttribute("disabled");
+        quotientAnswerEl.removeAttribute("disabled");
+        remainderAnswerEl.removeAttribute("disabled");
+        if (current.op === "÷") quotientAnswerEl.focus(); else answerEl.focus();
+      }
     }
 
     function handleNext() {
@@ -875,6 +946,15 @@
       }
 
       checkBtn.addEventListener("click", checkAnswer);
+      // Allow checking a revised answer after a wrong attempt.
+      function enableRetry() {
+        if (activeRecord && activeRecord.attempts.length && !activeRecord.attempts.at(-1).correct) {
+          checkBtn.disabled = current.op === "÷"
+            ? !(quotientAnswerEl.value.trim() && remainderAnswerEl.value.trim())
+            : !answerEl.value.trim();
+        }
+      }
+      [answerEl, quotientAnswerEl, remainderAnswerEl].forEach(el => el.addEventListener("input", enableRetry));
       nextBtn.addEventListener("click", handleNext);
       answerEl.addEventListener("input", updateCheckButton);
       quotientAnswerEl.addEventListener("input", updateCheckButton);
@@ -892,6 +972,14 @@
 
     function initStats() {
       renderStats();
+      document.getElementById("emailReportBtn").addEventListener("click", () => {
+        const email = document.getElementById("reportEmail");
+        if (!todayRecords().length) { alert("今天尚無作答紀錄。"); return; }
+        if (email.value.trim() && !email.checkValidity()) { email.reportValidity(); return; }
+        const subject = "999math 每日學習報告 " + localDateKey();
+        window.location.href = "mailto:" + encodeURIComponent(email.value.trim()) +
+          "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(buildReport());
+      });
       document.getElementById("resetStats").addEventListener("click", () => {
         stats = { ...defaultStats };
         saveStats();
