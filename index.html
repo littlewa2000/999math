@@ -601,7 +601,79 @@
       sizeValue.textContent = String(ctx.lineWidth);
     }
 
+    // Persist drawing and last activity across tab changes and Safari reloads.
+    const PAD_SAVE_KEY = "math999_draw_snapshot_v1";
+    const PAD_IDLE_MS = 24 * 60 * 60 * 1000;
+    let padSaveTimer = null;
+    let padLastActivity = 0;
+    let padGeneration = 0;
+
+    function forgetSavedPad() {
+      try { localStorage.removeItem(PAD_SAVE_KEY); } catch (err) { console.warn("Pad storage unavailable", err); }
+    }
+
+    function savePadNow() {
+      clearTimeout(padSaveTimer);
+      padSaveTimer = null;
+      if (!padReady || !padLastActivity) return;
+      try {
+        localStorage.setItem(PAD_SAVE_KEY, JSON.stringify({
+          updatedAt: padLastActivity,
+          width: padCssWidth,
+          height: padCssHeight,
+          scrollLeft: padViewport.scrollLeft,
+          scrollTop: padViewport.scrollTop,
+          image: canvas.toDataURL("image/png")
+        }));
+      } catch (err) { console.warn("Could not save drawing", err); }
+    }
+
+    function notePadActivity() {
+      padLastActivity = Date.now();
+      clearTimeout(padSaveTimer);
+      padSaveTimer = setTimeout(savePadNow, 400);
+    }
+
+    function expirePadIfIdle() {
+      if (!padLastActivity || Date.now() - padLastActivity < PAD_IDLE_MS) return false;
+      clearDrawingArea();
+      return true;
+    }
+
+    function restoreSavedPad() {
+      let saved;
+      try {
+        saved = JSON.parse(localStorage.getItem(PAD_SAVE_KEY) || "null");
+      } catch (err) { forgetSavedPad(); return; }
+      if (!saved || !Number.isFinite(saved.updatedAt)) return;
+      if (Date.now() - saved.updatedAt >= PAD_IDLE_MS || saved.updatedAt > Date.now()) {
+        forgetSavedPad();
+        return;
+      }
+      if (!saved.image || !Number.isFinite(saved.width) || !Number.isFinite(saved.height)) return;
+      const generation = ++padGeneration;
+      const image = new Image();
+      image.onload = () => {
+        if (generation !== padGeneration || padLastActivity) return;
+        setCanvasCssSize(saved.width, saved.height);
+        padReady = true;
+        ctx.drawImage(image, 0, 0, saved.width, saved.height);
+        padLastActivity = saved.updatedAt;
+        requestAnimationFrame(() => {
+          padViewport.scrollLeft = saved.scrollLeft || 0;
+          padViewport.scrollTop = saved.scrollTop || 0;
+        });
+      };
+      image.onerror = () => { forgetSavedPad(); };
+      image.src = saved.image;
+    }
+
     function clearDrawingArea() {
+      ++padGeneration;
+      clearTimeout(padSaveTimer);
+      padSaveTimer = null;
+      padLastActivity = 0;
+      forgetSavedPad();
       ctx.save();
       ctx.setTransform(1,0,0,1,0,0);
       ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -826,6 +898,7 @@
           ctx.arc(last.x, last.y, ctx.lineWidth / 2, 0, Math.PI * 2);
           ctx.fillStyle = ctx.strokeStyle;
           ctx.fill();
+          notePadActivity();
         }
         e.preventDefault();
       });
@@ -842,16 +915,24 @@
           ctx.lineTo(p.x, p.y);
           ctx.stroke();
           last = p;
+          notePadActivity();
         }
         e.preventDefault();
       });
-      canvas.addEventListener("pointerup", finishGesture);
+      canvas.addEventListener("pointerup", (e) => { if (drawing && e.pointerId === activePointerId) savePadNow(); finishGesture(e); });
       canvas.addEventListener("pointercancel", finishGesture);
       canvas.addEventListener("lostpointercapture", finishGesture);
       penToolBtn.addEventListener("click", () => setPadTool("pen"));
       panToolBtn.addEventListener("click", () => setPadTool("pan"));
       clearPadBtn.addEventListener("click", clearDrawingArea);
       setPadTool("pen");
+      restoreSavedPad();
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) savePadNow();
+        else expirePadIfIdle();
+      });
+      window.addEventListener("pagehide", savePadNow);
+      setInterval(expirePadIfIdle, 60 * 1000);
     }
 
     // Optional: read ?digits=..&multiplierDigits=..
@@ -890,6 +971,7 @@
           b.setAttribute('aria-selected', String(active));
         });
         panes.forEach((p) => p.classList.toggle('active', p.id === id));
+        if (id === 'draw' && typeof expirePadIfIdle === 'function') expirePadIfIdle();
         if (id === 'draw' && typeof resizeCanvasToCSS === 'function') {
           setTimeout(resizeCanvasToCSS, 50);
         }
