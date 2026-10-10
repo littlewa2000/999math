@@ -800,7 +800,11 @@
       remainderAnswerEl.setAttribute("disabled","true");
     }
 
-    function handleNext() { generateQuestion(); }
+    function handleNext() {
+      // A new practice question starts with a fresh drawing surface.
+      clearDrawingArea();
+      generateQuestion();
+    }
 
     // ---------------------------
     // Init & events
