@@ -68,6 +68,10 @@
     .size-wrap input[type=range] { width: 160px; }
     .tool-toggle { display:flex; gap:.35rem; }
     .tool-toggle button.active { background:var(--brand-weak); border-color:var(--brand); color:var(--brand); }
+    .eraser-size-wrap { display:none; align-items:center; gap:.4rem; }
+    .eraser-size-wrap.active { display:flex; }
+    .eraser-size-wrap input[type=range] { width:120px; }
+    #eraserPreview { position:absolute; z-index:3; border:2px solid #dc2626; border-radius:50%; pointer-events:none; display:none; box-sizing:border-box; background:transparent; }
     .pad-page-info { font-size:.82rem; color:var(--muted); }
 
     /* Stats */
@@ -185,13 +189,20 @@
             </div>
             <div class="tool-toggle" role="group" aria-label="Drawing tool">
               <button id="penToolBtn" class="secondary active" type="button" aria-pressed="true" title="Draw">✏️</button>
+              <button id="eraserToolBtn" class="secondary" type="button" aria-pressed="false" title="Eraser" aria-label="Eraser">🔴</button>
               <button id="panToolBtn" class="secondary" type="button" aria-pressed="false" title="Move canvas">🖐️</button>
+            </div>
+            <div id="eraserSizeWrap" class="eraser-size-wrap">
+              <label for="eraserSizeInput" class="muted">Eraser size</label>
+              <input id="eraserSizeInput" type="range" min="10" max="100" step="5" value="30" />
+              <span id="eraserSizeValue" class="muted">30</span>
             </div>
             <button id="clearPadBtn" class="secondary" type="button">Clear</button>
           </div>
         </div>
         <div id="padViewport" class="pad-viewport">
           <canvas id="scratchpad" aria-label="Expandable drawing area"></canvas>
+          <div id="eraserPreview" aria-hidden="true"></div>
         </div>
 
       </section>
@@ -488,6 +499,11 @@
     const clearPadBtn = document.getElementById("clearPadBtn");
     const penToolBtn = document.getElementById("penToolBtn");
     const panToolBtn = document.getElementById("panToolBtn");
+    const eraserToolBtn = document.getElementById("eraserToolBtn");
+    const eraserSizeInput = document.getElementById("eraserSizeInput");
+    const eraserSizeValue = document.getElementById("eraserSizeValue");
+    const eraserSizeWrap = document.getElementById("eraserSizeWrap");
+    const eraserPreview = document.getElementById("eraserPreview");
 
     let padCssWidth = 0;
     let padCssHeight = 0;
@@ -594,6 +610,39 @@
         x: (source.clientX - rect.left) * scaleX,
         y: (source.clientY - rect.top) * scaleY
       };
+    }
+
+    function showEraserPreview(e) {
+      if (padTool !== "eraser") { eraserPreview.style.display = "none"; return; }
+      const size = Number(eraserSizeInput.value);
+      const rect = padViewport.getBoundingClientRect();
+      eraserPreview.style.width = size + "px";
+      eraserPreview.style.height = size + "px";
+      eraserPreview.style.left = (e.clientX - rect.left + padViewport.scrollLeft - size / 2) + "px";
+      eraserPreview.style.top = (e.clientY - rect.top + padViewport.scrollTop - size / 2) + "px";
+      eraserPreview.style.display = "block";
+    }
+
+    function eraseDot(point) {
+      const radius = Number(eraserSizeInput.value) / 2;
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function eraseLine(from, to) {
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.lineWidth = Number(eraserSizeInput.value);
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+      ctx.restore();
     }
 
     function setStrokeWidth(w) {
@@ -859,6 +908,10 @@
         panStart = null;
         if (activePointerId !== null) finishGesture({ pointerId: activePointerId });
         canvas.classList.toggle("pan-mode", tool === "pan");
+        eraserSizeWrap.classList.toggle("active", tool === "eraser");
+        eraserPreview.style.display = "none";
+        eraserToolBtn.classList.toggle("active", tool === "eraser");
+        eraserToolBtn.setAttribute("aria-pressed", String(tool === "eraser"));
         canvas.classList.remove("panning");
         penToolBtn.classList.toggle("active", tool === "pen");
         panToolBtn.classList.toggle("active", tool === "pan");
@@ -879,6 +932,7 @@
         last = null;
         panStart = null;
         canvas.classList.remove("panning");
+        eraserPreview.style.display = "none";
       }
 
       canvas.addEventListener("pointerdown", (e) => {
@@ -894,10 +948,15 @@
           drawing = true;
           last = getPoint(e);
           // A tap should leave a visible dot, even without pointer movement.
-          ctx.beginPath();
-          ctx.arc(last.x, last.y, ctx.lineWidth / 2, 0, Math.PI * 2);
-          ctx.fillStyle = ctx.strokeStyle;
-          ctx.fill();
+          if (padTool === "eraser") {
+            eraseDot(last);
+            showEraserPreview(e);
+          } else {
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, ctx.lineWidth / 2, 0, Math.PI * 2);
+            ctx.fillStyle = ctx.strokeStyle;
+            ctx.fill();
+          }
           notePadActivity();
         }
         e.preventDefault();
@@ -910,10 +969,15 @@
           padViewport.scrollTop = panStart.top - (e.clientY - panStart.y);
         } else if (drawing && last) {
           const p = getPoint(e);
-          ctx.beginPath();
-          ctx.moveTo(last.x, last.y);
-          ctx.lineTo(p.x, p.y);
-          ctx.stroke();
+          if (padTool === "eraser") {
+            eraseLine(last, p);
+            showEraserPreview(e);
+          } else {
+            ctx.beginPath();
+            ctx.moveTo(last.x, last.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+          }
           last = p;
           notePadActivity();
         }
@@ -921,9 +985,13 @@
       });
       canvas.addEventListener("pointerup", (e) => { if (drawing && e.pointerId === activePointerId) savePadNow(); finishGesture(e); });
       canvas.addEventListener("pointercancel", finishGesture);
+      canvas.addEventListener("pointerleave", () => { if (!drawing) eraserPreview.style.display = "none"; });
+      canvas.addEventListener("pointermove", (e) => { if (padTool === "eraser") showEraserPreview(e); });
       canvas.addEventListener("lostpointercapture", finishGesture);
       penToolBtn.addEventListener("click", () => setPadTool("pen"));
       panToolBtn.addEventListener("click", () => setPadTool("pan"));
+      eraserToolBtn.addEventListener("click", () => setPadTool("eraser"));
+      eraserSizeInput.addEventListener("input", () => { eraserSizeValue.textContent = eraserSizeInput.value; });
       clearPadBtn.addEventListener("click", clearDrawingArea);
       setPadTool("pen");
       restoreSavedPad();
