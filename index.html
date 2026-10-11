@@ -184,8 +184,8 @@
           <div class="pad-controls">
             <div class="size-wrap">
               <span class="muted">Pen size</span>
-              <input id="sizeInput" type="range" min="1" max="20" step="1" value="10" />
-              <span id="sizeValue" class="muted">10</span>
+              <input id="sizeInput" type="range" min="1" max="20" step="1" value="3" />
+              <span id="sizeValue" class="muted">3</span>
             </div>
             <div class="tool-toggle" role="group" aria-label="Drawing tool">
               <button id="penToolBtn" class="secondary active" type="button" aria-pressed="true" title="Draw">✏️</button>
@@ -572,7 +572,7 @@
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.strokeStyle = "#0f172a";
-      ctx.lineWidth = clamp(parseInt(sizeInput.value, 10) || 10, 1, 20);
+      ctx.lineWidth = clamp(parseInt(sizeInput.value, 10) || 3, 1, 20);
     }
 
     function setCanvasCssSize(width, height) {
@@ -985,7 +985,7 @@
 
     function initPad() {
       if (!canvas) return;
-      setStrokeWidth(parseInt(sizeInput.value, 10) || 10);
+      setStrokeWidth(parseInt(sizeInput.value, 10) || 3);
       sizeInput.addEventListener("input", () => setStrokeWidth(parseInt(sizeInput.value, 10)));
 
       function setPadTool(tool) {
