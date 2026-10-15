@@ -61,6 +61,8 @@
     .pad-header { display:flex; align-items:center; justify-content:space-between; margin-top:.5rem; gap:.75rem; flex-wrap:wrap; }
     .pad-controls { display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
     .pad-viewport { position:relative; width:100%; height:65vh; margin-top:.75rem; overflow:auto; overscroll-behavior:contain; border:1px solid var(--border); border-radius:12px; background:#fff; -webkit-overflow-scrolling:touch; touch-action:none; }
+    .pad-viewport.hand-mode { touch-action:none; cursor:grab; }
+    .pad-viewport.hand-mode.dragging { cursor:grabbing; }
     #scratchpad { display:block; background:#fff; touch-action:none; user-select:none; -webkit-user-select:none; cursor:crosshair; }
     #scratchpad.pan-mode { cursor:grab; }
     #scratchpad.pan-mode.panning { cursor:grabbing; }
@@ -996,6 +998,7 @@
         panStart = null;
         if (activePointerId !== null) finishGesture({ pointerId: activePointerId });
         canvas.classList.toggle("pan-mode", tool === "pan");
+        padViewport.classList.toggle("hand-mode", tool === "pan");
         eraserSizeWrap.classList.toggle("active", tool === "eraser");
         eraserPreview.style.display = "none";
         eraserToolBtn.classList.toggle("active", tool === "eraser");
@@ -1023,6 +1026,38 @@
         eraserPreview.style.display = "none";
       }
 
+      // Capture hand gestures on the viewport itself. This keeps horizontal
+      // drags inside the drawing area instead of triggering page/tab swipes.
+      let handPointer = null;
+      let handOrigin = null;
+      padViewport.addEventListener("pointerdown", (e) => {
+        if (padTool !== "pan" || handPointer !== null ||
+            (e.pointerType === "mouse" && e.button !== 0)) return;
+        initExpandableCanvas();
+        handPointer = e.pointerId;
+        handOrigin = { x:e.clientX, y:e.clientY,
+          left:padViewport.scrollLeft, top:padViewport.scrollTop };
+        padViewport.setPointerCapture(e.pointerId);
+        padViewport.classList.add("dragging");
+        e.preventDefault();
+        e.stopPropagation();
+      }, true);
+      padViewport.addEventListener("pointermove", (e) => {
+        if (padTool !== "pan" || e.pointerId !== handPointer || !handOrigin) return;
+        padViewport.scrollLeft = handOrigin.left + handOrigin.x - e.clientX;
+        padViewport.scrollTop = handOrigin.top + handOrigin.y - e.clientY;
+        e.preventDefault();
+        e.stopPropagation();
+      }, true);
+      function finishHand(e) {
+        if (e.pointerId !== handPointer) return;
+        handPointer = null;
+        handOrigin = null;
+        padViewport.classList.remove("dragging");
+      }
+      padViewport.addEventListener("pointerup", finishHand, true);
+      padViewport.addEventListener("pointercancel", finishHand, true);
+      padViewport.addEventListener("lostpointercapture", finishHand, true);
       canvas.addEventListener("pointerdown", (e) => {
         if (activePointerId !== null || (e.pointerType === "mouse" && e.button !== 0)) return;
         initExpandableCanvas();
