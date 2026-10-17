@@ -848,10 +848,15 @@
         resultEl.textContent = "Try again";
         resultEl.classList.add("bad");
         resultEl.classList.remove("ok");
-        if (current.op === "÷") {
-          correctValEl.textContent = `Correct answer: quotient ${current.quotient}, remainder ${current.remainder}`;
+        const wrongCount = activeRecord.attempts.filter(attempt => !attempt.correct).length;
+        if (wrongCount >= 3) {
+          if (current.op === "÷") {
+            correctValEl.textContent = `Correct answer: quotient ${current.quotient}, remainder ${current.remainder}`;
+          } else {
+            correctValEl.textContent = `Correct answer: ${current.answer}`;
+          }
         } else {
-          correctValEl.textContent = `Correct answer: ${current.answer}`;
+          correctValEl.textContent = "";
         }
       }
       renderStats();
